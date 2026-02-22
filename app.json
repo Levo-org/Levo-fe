@@ -4,7 +4,7 @@
     "slug": "levo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -23,12 +23,11 @@
       "package": "com.levo.app",
       "versionCode": 1
     },
-    "plugins": [
+      "plugins": [
       "expo-secure-store",
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
           "color": "#58CC02"
         }
       ]
