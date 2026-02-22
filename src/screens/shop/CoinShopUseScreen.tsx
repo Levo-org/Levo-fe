@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
@@ -18,6 +19,7 @@ const ITEMS = [
 ];
 
 export default function CoinShopUseScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const { coins } = useUserStore();
 
   const handlePurchase = (item: typeof ITEMS[0]) => {
@@ -33,7 +35,7 @@ export default function CoinShopUseScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <BackButton />
         <Text style={styles.headerTitle}>아이템 상점</Text>
         <View style={styles.coinBadge}>
@@ -68,7 +70,7 @@ export default function CoinShopUseScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#4B4B4B' },
   coinBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFF8E1', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 10 },
   coinEmoji: { fontSize: 14 },

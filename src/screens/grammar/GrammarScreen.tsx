@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
@@ -28,11 +29,12 @@ const levelColors: Record<string, string> = {
 };
 
 export default function GrammarScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <BackButton />
         <Text style={styles.headerTitle}>문법</Text>
         <View style={{ width: 40 }} />
@@ -84,7 +86,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 0,
     paddingBottom: 12,
   },
   headerTitle: {

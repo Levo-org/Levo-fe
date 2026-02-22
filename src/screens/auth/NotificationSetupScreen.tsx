@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Switch, StyleSheet, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../types';
@@ -14,6 +15,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'NotificationSetup'>;
 const HOURS = [7, 8, 9, 12, 18, 20, 21];
 
 export default function NotificationSetupScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [selectedHour, setSelectedHour] = useState(7);
   const { setNotification, targetLanguage, level, dailyGoalMinutes } = useOnboardingStore();
@@ -73,7 +75,7 @@ export default function NotificationSetupScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <BackButton />
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: '100%' }]} />
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 0,
     paddingBottom: 12,
     gap: 16,
   },

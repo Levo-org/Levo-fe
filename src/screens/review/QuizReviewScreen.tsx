@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,6 +19,7 @@ const REVIEW_QUESTIONS = [
 const LABELS = ['A', 'B', 'C', 'D'];
 
 export default function QuizReviewScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
@@ -52,7 +54,7 @@ export default function QuizReviewScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Feather name="x" size={24} color="#AFAFAF" />
         </TouchableOpacity>
@@ -84,7 +86,7 @@ export default function QuizReviewScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16, gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 16, gap: 12 },
   content: { flex: 1, paddingHorizontal: 24 },
   counter: { fontSize: 13, color: '#AFAFAF', marginBottom: 8 },
   question: { fontSize: 22, fontWeight: '700', color: '#4B4B4B', marginBottom: 28 },

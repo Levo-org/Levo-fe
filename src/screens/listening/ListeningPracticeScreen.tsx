@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -21,6 +22,7 @@ const MOCK_PROBLEMS = [
 const LABELS = ['A', 'B', 'C', 'D'];
 
 export default function ListeningPracticeScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -57,7 +59,7 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <BackButton />
         <View style={styles.progressWrapper}>
           <ProgressIndicator current={currentIndex + 1} total={totalProblems} height={6} />
@@ -122,7 +124,7 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16, gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 16, gap: 12 },
   progressWrapper: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 24 },
   counter: { fontSize: 13, color: '#AFAFAF', marginBottom: 12 },

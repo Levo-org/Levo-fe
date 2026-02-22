@@ -1,8 +1,16 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 import { useAuthStore } from '../stores/authStore';
 
-declare const process: any;
-const API_URL = process?.EXPO_PUBLIC_API_URL || process?.env?.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+// Expo SDK 52: use Constants.expoConfig.extra or fallback
+const getApiUrl = (): string => {
+  const extra = (Constants.expoConfig as any)?.extra;
+  if (extra?.apiUrl) return extra.apiUrl;
+  // For iOS simulator, localhost works. For physical device, use LAN IP.
+  return 'http://192.168.45.150r:5001/api/v1';
+};
+
+const API_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_URL,
@@ -45,16 +53,13 @@ api.interceptors.response.use(
               ...tokens,
               accessToken: data.data.accessToken,
             };
-            useAuthStore.getState().setAuthenticated(
-              useAuthStore.getState().user!,
-              newTokens,
-              useAuthStore.getState().languageProfile!
-            );
+            const store = useAuthStore.getState();
+            await store.setAuthenticated(store.user!, newTokens, store.languageProfile);
             originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
             return api(originalRequest);
           }
         } catch (e) {
-          useAuthStore.getState().logout();
+          await useAuthStore.getState().logout();
         }
       }
     }
@@ -63,4 +68,5 @@ api.interceptors.response.use(
   }
 );
 
+export { API_URL };
 export default api;

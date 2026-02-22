@@ -87,7 +87,7 @@ npx expo start
 `.env` 파일을 프로젝트 루트에 생성:
 
 ```env
-EXPO_PUBLIC_API_URL=http://localhost:5000/api/v1
+EXPO_PUBLIC_API_URL=http://localhost:5001/api/v1
 EXPO_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
 EXPO_PUBLIC_APPLE_CLIENT_ID=your-apple-client-id
 ```
@@ -116,7 +116,7 @@ EXPO_PUBLIC_APPLE_CLIENT_ID=your-apple-client-id
 
 ## 🔗 백엔드 API
 
-- Base URL: `http://localhost:5000/api/v1`
+- Base URL: `http://localhost:5001/api/v1`
 - 인증: Bearer Token (JWT)
 - 상세: `../Levo-be/API_SPEC.md`
 

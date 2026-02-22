@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
+import { useAuthStore } from '../../stores/authStore';
 import BackButton from '../../components/BackButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
@@ -11,10 +13,26 @@ export default function SettingsScreen({ navigation }: Props) {
   const [notifications, setNotifications] = useState(true);
   const [soundEffects, setSoundEffects] = useState(true);
   const [vibration, setVibration] = useState(true);
+  const logout = useAuthStore((s) => s.logout);
+  const insets = useSafeAreaInsets();
+
+  const handleLogout = () => {
+    Alert.alert('로그아웃', '정말 로그아웃 하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '로그아웃',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          // Navigation resets automatically via RootNavigator isAuthenticated check
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <BackButton />
         <Text style={styles.headerTitle}>설정</Text>
         <View style={{ width: 40 }} />
@@ -74,6 +92,12 @@ export default function SettingsScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
+        {/* 로그아웃 */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
+          <Feather name="log-out" size={18} color="#FF4B4B" />
+          <Text style={styles.logoutText}>로그아웃</Text>
+        </TouchableOpacity>
+
         <View style={{ height: 32 }} />
       </ScrollView>
     </View>
@@ -82,7 +106,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#4B4B4B' },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
@@ -96,4 +120,6 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 15, color: '#AFAFAF' },
   linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: '#E5E5E5' },
   linkLabel: { fontSize: 15, color: '#4B4B4B' },
+  logoutButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 16, borderRadius: 16, borderWidth: 1, borderColor: '#FFEBEE', marginTop: 24, backgroundColor: '#FFF5F5' },
+  logoutText: { fontSize: 16, fontWeight: '600', color: '#FF4B4B' },
 });

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,6 +19,7 @@ const FEATURES = [
 ];
 
 export default function PremiumScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const handleSubscribe = (plan: string) => {
     Alert.alert('구독', `${plan} 구독을 시작하시겠습니까?`, [
       { text: '취소', style: 'cancel' },
@@ -27,7 +29,7 @@ export default function PremiumScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <BackButton color="#FFFFFF" />
       </View>
 
@@ -86,7 +88,7 @@ export default function PremiumScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#CE82FF' },
-  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 },
+  header: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20 },
   heroSection: { alignItems: 'center', paddingTop: 12, paddingBottom: 32 },

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../types';
@@ -18,6 +19,7 @@ const LEVELS = [
 ];
 
 export default function LevelSelectScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState<string | null>(null);
   const { setLevel } = useOnboardingStore();
 
@@ -30,7 +32,7 @@ export default function LevelSelectScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <BackButton />
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: '50%' }]} />
@@ -89,7 +91,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 0,
     paddingBottom: 12,
     gap: 16,
   },

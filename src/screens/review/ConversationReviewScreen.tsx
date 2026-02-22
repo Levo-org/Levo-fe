@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
 import BackButton from '../../components/BackButton';
@@ -7,9 +8,11 @@ import BackButton from '../../components/BackButton';
 type Props = NativeStackScreenProps<RootStackParamList, 'ConversationReview'>;
 
 export default function ConversationReviewScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <BackButton />
         <Text style={styles.headerTitle}>회화 복습</Text>
         <View style={{ width: 40 }} />
@@ -26,7 +29,7 @@ export default function ConversationReviewScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#4B4B4B' },
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   emoji: { fontSize: 64, marginBottom: 16 },

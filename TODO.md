@@ -15,6 +15,7 @@
 - [x] TopBar 컴포넌트 (full/simple variant, 하트/스트릭/코인 표시)
 - [x] ProgressIndicator 컴포넌트 (온보딩 단계 표시)
 - [x] HeartsModal 컴포넌트 (하트 충전 모달)
+- [x] SafeHeader 컴포넌트 (SafeArea 대응 헤더)
 
 ### Phase 3: 인증/온보딩 화면 (6개)
 - [x] Splash 화면 (앱 로고 + 로딩 애니메이션)
@@ -59,7 +60,7 @@
 - [x] QuizReview 화면 (오답 노트)
 
 ### Phase 8: 기타 화면
-- [x] Settings 화면 (설정)
+- [x] Settings 화면 (설정 + 로그아웃)
 - [x] Badges 화면 (뱃지 컬렉션)
 - [x] CoinShop 화면 (코인 상점)
 - [x] CoinShopUse 화면 (코인 사용처)
@@ -67,21 +68,69 @@
 - [x] StreakDetail 화면 (스트릭 상세)
 - [x] HeartsDemo 화면 (하트 시스템)
 
-### Phase 9: API 연동/상태관리
+### Phase 9: 앱 인프라
 - [x] Axios 인스턴스 설정 (인터셉터, 토큰 관리)
 - [x] API 서비스 레이어 (auth, user, vocabulary, grammar 등)
 - [x] Zustand 스토어 (authStore, userStore, onboardingStore 등)
-
-### Phase 10: 앱 엔트리포인트
-- [x] App.tsx (GestureHandler, SafeAreaProvider, StatusBar, RootNavigator)
+- [x] App.tsx 엔트리포인트 + index.js registerRootComponent
 - [x] 네비게이션 import 수정 (default exports 대응)
+
+### Phase 10: 인증 연동 ✅ (완료)
+- [x] SecureStore 기반 토큰 영속화 (authStore 리팩터)
+- [x] dev-login API 연동 (SNS 버튼 → auth/dev-login 호출)
+- [x] 앱 시작 시 세션 복원 (restoreSession)
+- [x] 로딩 중 스플래시 표시 (RootNavigator isLoading 분기)
+- [x] 설정 화면 로그아웃 버튼 (SecureStore 삭제 + 상태 초기화)
+- [x] SafeArea 전체 적용 (32개 화면 paddingTop → useSafeAreaInsets)
 
 ---
 
-## 📊 진행률: **완료!** ✅
+### Phase 11: API 연동 (TODO — 아직 미연동)
+- [ ] Home 화면 ← GET /home (homeService)
+- [ ] Vocabulary 화면 ← GET /vocabulary (vocabularyService)
+- [ ] Flashcard 화면 ← GET /vocabulary/:chapter/flashcards
+- [ ] Grammar 화면 ← GET /grammar (grammarService)
+- [ ] GrammarDetail 화면 ← GET /grammar/:id
+- [ ] GrammarQuiz 화면 ← POST /grammar/:id/quiz
+- [ ] Conversation 화면 ← GET /conversations (conversationService)
+- [ ] ConversationDialog ← GET /conversations/:id
+- [ ] ListeningPractice ← GET /listening (listeningService)
+- [ ] ReadingPractice ← GET /reading (readingService)
+- [ ] LessonMap 화면 ← GET /lessons (lessonService)
+- [ ] LessonStart ← GET /lessons/:id
+- [ ] LessonQuiz ← POST /lessons/:id/quiz
+- [ ] LessonComplete ← POST /lessons/:id/complete
+- [ ] QuizSystem ← GET /quiz, POST /quiz/submit
+- [ ] Review 화면 ← GET /review (reviewService)
+- [ ] VocabularyReview ← GET /review/vocabulary
+- [ ] GrammarReview ← GET /review/grammar
+- [ ] Stats 화면 ← GET /stats (statsService)
+- [ ] Streak 화면 ← GET /streak (streakService)
+- [ ] Badges 화면 ← GET /badges (badgeService)
+- [ ] Profile 화면 ← GET /users/me (userService)
+- [ ] Hearts 시스템 ← GET/POST /hearts (heartService)
+- [ ] CoinShop ← GET /coins, POST /coins/purchase
+- [ ] Subscription ← GET/POST /subscription
 
-총 화면: 37개 / 구현: 37개
-총 공통 컴포넌트: 5개 / 구현: 5개 (TopBar, ProgressIndicator, HeartsModal, BackButton, QuizOption)
-API 서비스: 18개 + api.ts / 구현: 19개
-상태 스토어: 5개 / 구현: 5개
-엔트리포인트: App.tsx ✅
+### Phase 12: 추가 개선
+- [ ] 에러 핸들링 통합 (toast/alert)
+- [ ] 로딩 스켈레톤 UI
+- [ ] Pull-to-refresh
+- [ ] 오프라인 모드 대응
+- [ ] 실제 SNS 로그인 (Google/Apple OAuth)
+- [ ] Push 알림 연동
+- [ ] 앱 아이콘/스플래시 이미지 설정
+
+---
+
+## 📊 진행 현황
+
+| 카테고리 | 완료 | 전체 | 비고 |
+|---------|------|------|------|
+| 화면 | 37 | 37 | ✅ |
+| 공통 컴포넌트 | 6 | 6 | SafeHeader 추가 |
+| API 서비스 파일 | 19 | 19 | ✅ (연동은 Phase 11) |
+| 상태 스토어 | 5 | 5 | ✅ |
+| 인증 플로우 | ✅ | - | dev-login + SecureStore + 로그아웃 |
+| SafeArea | ✅ | - | 32개 화면 + 설정/웰컴 |
+| API 실연동 | 0 | 25 | Phase 11 |

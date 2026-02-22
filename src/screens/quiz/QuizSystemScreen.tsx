@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -22,6 +23,7 @@ const QUIZ_QUESTIONS = [
 const LABELS = ['A', 'B', 'C', 'D'];
 
 export default function QuizSystemScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
@@ -86,7 +88,7 @@ export default function QuizSystemScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <Feather name="x" size={24} color="#AFAFAF" />
         </TouchableOpacity>
@@ -130,7 +132,7 @@ export default function QuizSystemScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16, gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 16, gap: 12 },
   progressWrapper: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 24 },
   categoryBadge: { alignSelf: 'flex-start', backgroundColor: '#EDF7FF', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8, marginBottom: 8 },

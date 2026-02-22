@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,6 +19,7 @@ const REVIEW_WORDS = [
 ];
 
 export default function VocabularyReviewScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [words, setWords] = useState(REVIEW_WORDS);
   const [completedCount, setCompletedCount] = useState(0);
 
@@ -32,7 +34,7 @@ export default function VocabularyReviewScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <BackButton />
         <Text style={styles.headerTitle}>어휘 복습</Text>
         <Text style={styles.countText}>{completedCount}/{REVIEW_WORDS.length}</Text>
@@ -80,7 +82,7 @@ export default function VocabularyReviewScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#4B4B4B' },
   countText: { fontSize: 14, fontWeight: '600', color: '#AFAFAF', width: 40, textAlign: 'right' },
   scroll: { flex: 1 },
