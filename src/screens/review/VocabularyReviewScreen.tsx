@@ -1,103 +1,127 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
 import BackButton from '../../components/BackButton';
+import { reviewService } from '../../services/review.service';
+import { useApi } from '../../hooks/useApi';
 import { colors } from '../../theme/colors';
+import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VocabularyReview'>;
 
-const REVIEW_WORDS = [
-  { id: '1', word: 'Beautiful', meaning: '아름다운', revealed: false },
-  { id: '2', word: 'Delicious', meaning: '맛있는', revealed: false },
-  { id: '3', word: 'Interesting', meaning: '흥미로운', revealed: false },
-  { id: '4', word: 'Difficult', meaning: '어려운', revealed: false },
-  { id: '5', word: 'Important', meaning: '중요한', revealed: false },
-];
+interface ReviewWord {
+  _id: string;
+  word: string;
+  meaning: string;
+  pronunciation?: string;
+  example?: string;
+}
 
 export default function VocabularyReviewScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const [words, setWords] = useState(REVIEW_WORDS);
-  const [completedCount, setCompletedCount] = useState(0);
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+  const [reviewedCount, setReviewedCount] = useState(0);
+
+  const fetcher = useCallback(() => reviewService.getCategoryItems('vocabulary'), []);
+  const { data, loading } = useApi<ReviewWord[]>(fetcher);
+
+  const words = data ?? [];
 
   const toggleReveal = (id: string) => {
-    setWords((prev) => prev.map((w) => (w.id === id ? { ...w, revealed: !w.revealed } : w)));
+    setRevealedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        setReviewedCount(c => c + 1);
+      }
+      return next;
+    });
   };
 
-  const markComplete = (id: string) => {
-    setWords((prev) => prev.filter((w) => w.id !== id));
-    setCompletedCount((c) => c + 1);
+  const handleComplete = async () => {
+    try {
+      await reviewService.completeReview('vocabulary');
+    } catch { /* ignore */ }
+    navigation.goBack();
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
         <BackButton />
         <Text style={styles.headerTitle}>어휘 복습</Text>
-        <Text style={styles.countText}>{completedCount}/{REVIEW_WORDS.length}</Text>
+        <Text style={styles.headerCount}>{words.length}개</Text>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {words.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🎉</Text>
-            <Text style={styles.emptyTitle}>모든 단어를 복습했어요!</Text>
-            <TouchableOpacity style={styles.doneButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
-              <Text style={styles.doneButtonText}>돌아가기</Text>
-            </TouchableOpacity>
+          <View style={styles.empty}>
+            <Text style={{ fontSize: 48, marginBottom: 12 }}>📝</Text>
+            <Text style={styles.emptyText}>복습할 어휘가 없습니다</Text>
           </View>
         ) : (
-          words.map((word, index) => (
-            <Animated.View key={word.id} entering={FadeInDown.delay(index * 50).duration(300)}>
-              <View style={styles.wordCard}>
-                <TouchableOpacity style={styles.wordMain} onPress={() => toggleReveal(word.id)} activeOpacity={0.7}>
-                  <Text style={styles.wordText}>{word.word}</Text>
-                  {word.revealed ? (
-                    <Text style={styles.meaningText}>{word.meaning}</Text>
+          words.map((w, idx) => {
+            const revealed = revealedIds.has(w._id);
+            return (
+              <Animated.View entering={FadeInDown.delay(idx * 60).duration(300)} key={w._id}>
+                <TouchableOpacity style={styles.card} onPress={() => toggleReveal(w._id)} activeOpacity={0.7}>
+                  <Text style={styles.word}>{w.word}</Text>
+                  {w.pronunciation && <Text style={styles.pronunciation}>{w.pronunciation}</Text>}
+                  {revealed ? (
+                    <Animated.View entering={FadeIn.duration(200)}>
+                      <Text style={styles.meaning}>{w.meaning}</Text>
+                      {w.example && <Text style={styles.example}>{w.example}</Text>}
+                    </Animated.View>
                   ) : (
-                    <Text style={styles.tapHint}>탭하여 뜻 보기</Text>
+                    <Text style={styles.tapHint}>탭하여 뜻 확인</Text>
                   )}
                 </TouchableOpacity>
-                {word.revealed && (
-                  <View style={styles.wordActions}>
-                    <TouchableOpacity style={styles.wrongBtn} onPress={() => toggleReveal(word.id)} activeOpacity={0.7}>
-                      <Feather name="x" size={18} color="#FF4B4B" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.correctBtn} onPress={() => markComplete(word.id)} activeOpacity={0.7}>
-                      <Feather name="check" size={18} color="#58CC02" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            </Animated.View>
-          ))
+              </Animated.View>
+            );
+          })
         )}
       </ScrollView>
+
+      {words.length > 0 && (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity style={styles.completeBtn} onPress={handleComplete} activeOpacity={0.8}>
+            <Text style={styles.completeBtnText}>복습 완료</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#4B4B4B' },
-  countText: { fontSize: 14, fontWeight: '600', color: '#AFAFAF', width: 40, textAlign: 'right' },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 12, gap: 10 },
-  wordCard: { backgroundColor: '#F7F7F7', borderRadius: 16, padding: 16, gap: 12 },
-  wordMain: { gap: 4 },
-  wordText: { fontSize: 20, fontWeight: '700', color: '#4B4B4B' },
-  meaningText: { fontSize: 15, color: '#58CC02', fontWeight: '600' },
-  tapHint: { fontSize: 13, color: '#AFAFAF' },
-  wordActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
-  wrongBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFEBEE', justifyContent: 'center', alignItems: 'center' },
-  correctBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#E8F7E0', justifyContent: 'center', alignItems: 'center' },
-  emptyState: { alignItems: 'center', paddingTop: 100, gap: 12 },
-  emptyEmoji: { fontSize: 64 },
-  emptyTitle: { fontSize: 20, fontWeight: '700', color: '#4B4B4B' },
-  doneButton: { backgroundColor: '#58CC02', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 32, marginTop: 16 },
-  doneButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 16 },
+  headerTitle: { ...typography.h3, color: colors.text.primary },
+  headerCount: { ...typography.caption, color: colors.text.secondary },
+  content: { paddingHorizontal: 20, paddingBottom: 100 },
+  card: { backgroundColor: colors.background.secondary, borderRadius: 16, padding: 20, marginBottom: 12 },
+  word: { ...typography.h3, color: colors.text.primary, marginBottom: 4 },
+  pronunciation: { ...typography.small, color: colors.text.tertiary, marginBottom: 8 },
+  meaning: { ...typography.body, color: colors.primary.main, fontWeight: '600', marginBottom: 4 },
+  example: { ...typography.small, color: colors.text.secondary, fontStyle: 'italic' },
+  tapHint: { ...typography.small, color: colors.text.tertiary },
+  empty: { alignItems: 'center', marginTop: 80 },
+  emptyText: { ...typography.body, color: colors.text.secondary },
+  footer: { paddingHorizontal: 20, paddingTop: 12 },
+  completeBtn: { backgroundColor: colors.primary.main, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
+  completeBtnText: { ...typography.button, color: '#FFF', fontSize: 18 },
 });

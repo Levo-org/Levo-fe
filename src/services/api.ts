@@ -7,7 +7,7 @@ const getApiUrl = (): string => {
   const extra = (Constants.expoConfig as any)?.extra;
   if (extra?.apiUrl) return extra.apiUrl;
   // For iOS simulator, localhost works. For physical device, use LAN IP.
-  return 'http://192.168.45.150r:5001/api/v1';
+  return 'http://192.168.45.150:5001/api/v1';
 };
 
 const API_URL = getApiUrl();

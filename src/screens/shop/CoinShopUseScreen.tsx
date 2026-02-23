@@ -1,11 +1,15 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
 import BackButton from '../../components/BackButton';
+import { coinService } from '../../services/coin.service';
+import { useApi } from '../../hooks/useApi';
 import { useUserStore } from '../../stores/userStore';
+import { colors } from '../../theme/colors';
+import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CoinShopUse'>;
 
@@ -18,73 +22,107 @@ const ITEMS = [
   { id: 'extra_lesson', emoji: '📖', name: '보너스 레슨', desc: '추가 레슨 1개 해금', price: 500 },
 ];
 
+interface CoinsData {
+  balance: number;
+}
+
 export default function CoinShopUseScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { coins } = useUserStore();
+  const { coins, setCoins } = useUserStore();
+  const [purchasing, setPurchasing] = useState<string | null>(null);
 
-  const handlePurchase = (item: typeof ITEMS[0]) => {
-    if (coins < item.price) {
-      Alert.alert('코인 부족', '코인이 부족합니다. 코인을 더 모아보세요!');
-    } else {
-      Alert.alert('구매 확인', `${item.name}을(를) ${item.price} 코인으로 구매하시겠습니까?`, [
-        { text: '취소', style: 'cancel' },
-        { text: '구매', onPress: () => {} },
-      ]);
+  const fetcher = useCallback(() => coinService.getCoins(), []);
+  const { data, loading, refetch } = useApi<CoinsData>(fetcher);
+
+  const balance = data?.balance ?? coins;
+
+  const handlePurchase = async (item: typeof ITEMS[0]) => {
+    if (balance < item.price) {
+      Alert.alert('코인 부족', '코인이 부족합니다. 코인을 먼저 획득해주세요.');
+      return;
+    }
+
+    setPurchasing(item.id);
+    try {
+      const res = await coinService.spendCoins(item.id);
+      if (res.data?.success) {
+        const d = res.data.data;
+        setCoins(d.balance ?? balance - item.price);
+        refetch();
+        Alert.alert('구매 완료', `${item.name}을(를) 구매했습니다!`);
+      } else {
+        Alert.alert('실패', res.data?.message ?? '구매에 실패했습니다');
+      }
+    } catch (e: any) {
+      Alert.alert('오류', e?.response?.data?.message ?? '구매에 실패했습니다');
+    } finally {
+      setPurchasing(null);
     }
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
         <BackButton />
-        <Text style={styles.headerTitle}>아이템 상점</Text>
+        <Text style={styles.headerTitle}>코인 사용</Text>
         <View style={styles.coinBadge}>
-          <Text style={styles.coinEmoji}>💎</Text>
-          <Text style={styles.coinAmount}>{coins}</Text>
+          <Text style={styles.coinBadgeText}>🪙 {balance}</Text>
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.grid}>
-          {ITEMS.map((item, idx) => (
-            <Animated.View key={item.id} entering={FadeInDown.delay(idx * 60).duration(400)} style={styles.itemCard}>
-              <Text style={styles.itemEmoji}>{item.emoji}</Text>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemDesc}>{item.desc}</Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {ITEMS.map((item, idx) => {
+          const canAfford = balance >= item.price;
+          return (
+            <Animated.View entering={FadeInDown.delay(idx * 80).duration(400)} key={item.id}>
               <TouchableOpacity
-                style={[styles.buyButton, coins < item.price && styles.buyButtonDisabled]}
+                style={[styles.card, !canAfford && styles.cardDisabled]}
                 onPress={() => handlePurchase(item)}
+                disabled={purchasing !== null || !canAfford}
                 activeOpacity={0.7}
               >
-                <Text style={styles.buyEmoji}>💎</Text>
-                <Text style={[styles.buyPrice, coins < item.price && styles.buyPriceDisabled]}>{item.price}</Text>
+                <Text style={styles.emoji}>{item.emoji}</Text>
+                <View style={styles.info}>
+                  <Text style={[styles.name, !canAfford && styles.textDisabled]}>{item.name}</Text>
+                  <Text style={styles.desc}>{item.desc}</Text>
+                </View>
+                <View style={[styles.priceBadge, !canAfford && styles.priceBadgeDisabled]}>
+                  <Text style={[styles.priceText, !canAfford && styles.priceTextDisabled]}>🪙 {item.price}</Text>
+                </View>
               </TouchableOpacity>
             </Animated.View>
-          ))}
-        </View>
-        <View style={{ height: 32 }} />
+          );
+        })}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#4B4B4B' },
-  coinBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFF8E1', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 10 },
-  coinEmoji: { fontSize: 14 },
-  coinAmount: { fontSize: 14, fontWeight: '800', color: '#FFC800' },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  itemCard: { width: '47%', backgroundColor: '#F7F7F7', borderRadius: 16, padding: 16, alignItems: 'center', gap: 6 },
-  itemEmoji: { fontSize: 36 },
-  itemName: { fontSize: 14, fontWeight: '700', color: '#4B4B4B', textAlign: 'center' },
-  itemDesc: { fontSize: 11, color: '#AFAFAF', textAlign: 'center' },
-  buyButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFC800', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 10, gap: 4, marginTop: 4 },
-  buyButtonDisabled: { backgroundColor: '#E5E5E5' },
-  buyEmoji: { fontSize: 12 },
-  buyPrice: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
-  buyPriceDisabled: { color: '#AFAFAF' },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 16 },
+  headerTitle: { ...typography.h3, color: colors.text.primary },
+  coinBadge: { backgroundColor: '#FFF7ED', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
+  coinBadgeText: { ...typography.caption, color: '#F59E0B', fontWeight: '700' },
+  content: { paddingHorizontal: 20, paddingBottom: 40 },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background.secondary, borderRadius: 16, padding: 16, marginBottom: 12, gap: 14 },
+  cardDisabled: { opacity: 0.5 },
+  emoji: { fontSize: 32 },
+  info: { flex: 1 },
+  name: { ...typography.body, color: colors.text.primary, fontWeight: '600', marginBottom: 2 },
+  textDisabled: { color: colors.text.tertiary },
+  desc: { ...typography.small, color: colors.text.secondary },
+  priceBadge: { backgroundColor: '#FFF7ED', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
+  priceBadgeDisabled: { backgroundColor: colors.border.light },
+  priceText: { ...typography.caption, color: '#F59E0B', fontWeight: '700' },
+  priceTextDisabled: { color: colors.text.tertiary },
 });

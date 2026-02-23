@@ -1,101 +1,136 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
+import BackButton from '../../components/BackButton';
+import { reviewService } from '../../services/review.service';
+import { useApi } from '../../hooks/useApi';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
-const CATEGORIES = [
-  { id: 'vocabulary', emoji: '📝', title: '어휘 복습', count: 12, lastReview: '2시간 전', screen: 'VocabularyReview' as const, color: '#58CC02' },
-  { id: 'grammar', emoji: '📖', title: '문법 복습', count: 5, lastReview: '1일 전', screen: 'GrammarReview' as const, color: '#1CB0F6' },
-  { id: 'conversation', emoji: '💬', title: '회화 복습', count: 3, lastReview: '3일 전', screen: 'ConversationReview' as const, color: '#CE82FF' },
-  { id: 'listening', emoji: '🎧', title: '듣기 복습', count: 4, lastReview: '2일 전', screen: 'ListeningReview' as const, color: '#FF9600' },
-  { id: 'reading', emoji: '📚', title: '읽기 복습', count: 4, lastReview: '4일 전', screen: 'ReadingReview' as const, color: '#FF4B4B' },
-];
+interface ReviewDashboard {
+  totalReviewItems: number;
+  categories: {
+    id?: string;
+    category?: string;
+    name?: string;
+    count: number;
+    lastReview?: string;
+  }[];
+}
 
-export default function ReviewScreen() {
+const CATEGORY_META: Record<string, { emoji: string; title: string; screen: string; color: string }> = {
+  vocabulary: { emoji: '📝', title: '어휘 복습', screen: 'VocabularyReview', color: '#58CC02' },
+  grammar: { emoji: '📖', title: '문법 복습', screen: 'GrammarReview', color: '#1CB0F6' },
+  conversation: { emoji: '💬', title: '회화 복습', screen: 'ConversationReview', color: '#CE82FF' },
+  listening: { emoji: '🎧', title: '듣기 복습', screen: 'ListeningReview', color: '#FF9600' },
+  reading: { emoji: '📚', title: '읽기 복습', screen: 'ReadingReview', color: '#FF4B4B' },
+};
+
+export default function ReviewScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<Nav>();
-  const totalItems = CATEGORIES.reduce((sum, c) => sum + c.count, 0);
+
+  const fetcher = useCallback(() => reviewService.getDashboard(), []);
+  const { data, loading, refetch } = useApi<ReviewDashboard>(fetcher);
+
+  const categories = data?.categories ?? [];
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.title}>복습</Text>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
+        <BackButton />
+        <Text style={styles.headerTitle}>복습</Text>
+        <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.summaryCard}>
-          <Text style={styles.summaryEmoji}>📋</Text>
-          <Text style={styles.summaryCount}>{totalItems}개</Text>
-          <Text style={styles.summaryLabel}>복습이 필요한 항목</Text>
-        </Animated.View>
-
-        <View style={styles.categories}>
-          {CATEGORIES.map((cat, index) => (
-            <Animated.View key={cat.id} entering={FadeInDown.delay(100 + index * 80).duration(400)}>
-              <TouchableOpacity
-                style={styles.categoryCard}
-                onPress={() => navigation.navigate(cat.screen as any)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.categoryIcon, { backgroundColor: cat.color + '15' }]}>
-                  <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-                </View>
-                <View style={styles.categoryInfo}>
-                  <Text style={styles.categoryTitle}>{cat.title}</Text>
-                  <Text style={styles.categoryMeta}>{cat.count}개 · {cat.lastReview}</Text>
-                </View>
-                <View style={[styles.countBadge, { backgroundColor: cat.color + '15' }]}>
-                  <Text style={[styles.countText, { color: cat.color }]}>{cat.count}</Text>
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-          ))}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary.main} />
         </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Summary */}
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>복습할 항목</Text>
+            <Text style={styles.summaryCount}>{data?.totalReviewItems ?? 0}개</Text>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(600).duration(400)}>
-          <TouchableOpacity
-            style={styles.quizButton}
-            onPress={() => navigation.navigate('QuizReview')}
-            activeOpacity={0.8}
-          >
-            <Feather name="edit" size={20} color="#FFFFFF" />
-            <Text style={styles.quizButtonText}>퀴즈로 복습하기</Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        <View style={{ height: 32 }} />
-      </ScrollView>
+          {/* Categories */}
+          <Text style={styles.sectionTitle}>카테고리별 복습</Text>
+          {categories.length > 0 ? categories.map((cat, idx) => {
+            const key = cat.category ?? cat.id ?? cat.name ?? '';
+            const meta = CATEGORY_META[key] ?? {
+              emoji: '📋',
+              title: cat.category,
+              screen: 'VocabularyReview',
+              color: colors.primary.main,
+            };
+            return (
+              <Animated.View entering={FadeInDown.delay(idx * 80).duration(400)} key={key}>
+                <TouchableOpacity
+                  style={styles.categoryCard}
+                  onPress={() => navigation.navigate(meta.screen as any, { category: key })}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.categoryIcon, { backgroundColor: meta.color + '20' }]}>
+                    <Text style={styles.categoryEmoji}>{meta.emoji}</Text>
+                  </View>
+                  <View style={styles.categoryInfo}>
+                    <Text style={styles.categoryTitle}>{meta.title}</Text>
+                    <Text style={styles.categoryMeta}>
+                      {cat.count}개 · {cat.lastReview ? `마지막: ${cat.lastReview}` : '아직 없음'}
+                    </Text>
+                  </View>
+                  <Feather name="chevron-right" size={20} color={colors.text.tertiary} />
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          }) : (
+            /* Fallback: show all categories */
+            Object.entries(CATEGORY_META).map(([key, meta], idx) => (
+              <Animated.View entering={FadeInDown.delay(idx * 80).duration(400)} key={key}>
+                <TouchableOpacity
+                  style={styles.categoryCard}
+                  onPress={() => navigation.navigate(meta.screen as any, { category: key })}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.categoryIcon, { backgroundColor: meta.color + '20' }]}>
+                    <Text style={styles.categoryEmoji}>{meta.emoji}</Text>
+                  </View>
+                  <View style={styles.categoryInfo}>
+                    <Text style={styles.categoryTitle}>{meta.title}</Text>
+                    <Text style={styles.categoryMeta}>0개</Text>
+                  </View>
+                  <Feather name="chevron-right" size={20} color={colors.text.tertiary} />
+                </TouchableOpacity>
+              </Animated.View>
+            ))
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
-  title: { fontSize: 28, fontWeight: '800', color: '#4B4B4B' },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
-  summaryCard: { alignItems: 'center', backgroundColor: '#FFF8E1', borderRadius: 20, padding: 24, marginBottom: 24, gap: 4 },
-  summaryEmoji: { fontSize: 40, marginBottom: 4 },
-  summaryCount: { fontSize: 32, fontWeight: '800', color: '#FF9600' },
-  summaryLabel: { fontSize: 14, color: '#AFAFAF' },
-  categories: { gap: 12, marginBottom: 24 },
-  categoryCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F7F7', borderRadius: 16, padding: 16, gap: 12 },
-  categoryIcon: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  categoryEmoji: { fontSize: 24 },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 16 },
+  headerTitle: { ...typography.h3, color: colors.text.primary },
+  content: { paddingHorizontal: 20, paddingBottom: 40 },
+  summaryCard: { backgroundColor: colors.primary.main, borderRadius: 20, padding: 24, marginBottom: 24, alignItems: 'center' },
+  summaryTitle: { ...typography.body, color: '#FFFFFF', opacity: 0.9, marginBottom: 4 },
+  summaryCount: { fontSize: 36, fontWeight: '800', color: '#FFFFFF' },
+  sectionTitle: { ...typography.h4, color: colors.text.primary, marginBottom: 12 },
+  categoryCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background.secondary, borderRadius: 16, padding: 16, marginBottom: 12, gap: 14 },
+  categoryIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  categoryEmoji: { fontSize: 22 },
   categoryInfo: { flex: 1 },
-  categoryTitle: { fontSize: 15, fontWeight: '700', color: '#4B4B4B' },
-  categoryMeta: { fontSize: 12, color: '#AFAFAF', marginTop: 2 },
-  countBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 10 },
-  countText: { fontSize: 14, fontWeight: '800' },
-  quizButton: { flexDirection: 'row', backgroundColor: '#58CC02', borderRadius: 16, paddingVertical: 16, justifyContent: 'center', alignItems: 'center', gap: 8 },
-  quizButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  categoryTitle: { ...typography.body, color: colors.text.primary, fontWeight: '600', marginBottom: 2 },
+  categoryMeta: { ...typography.small, color: colors.text.secondary },
 });

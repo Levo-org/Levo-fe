@@ -1,82 +1,130 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
-import ProgressIndicator from '../../components/ProgressIndicator';
-import QuizOption from '../../components/QuizOption';
+import BackButton from '../../components/BackButton';
+import { reviewService } from '../../services/review.service';
+import { useApi } from '../../hooks/useApi';
+import { colors } from '../../theme/colors';
+import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'QuizReview'>;
 
-const REVIEW_QUESTIONS = [
-  { id: 1, question: '"Delicious"의 뜻은?', options: ['아름다운', '맛있는', '재미있는', '어려운'], correctIndex: 1 },
-  { id: 2, question: 'She ___ late yesterday.', options: ['arrive', 'arrives', 'arrived', 'arriving'], correctIndex: 2 },
-  { id: 3, question: '"Hospital"의 뜻은?', options: ['학교', '도서관', '병원', '호텔'], correctIndex: 2 },
-];
-
-const LABELS = ['A', 'B', 'C', 'D'];
+interface ReviewQuestion {
+  _id: string;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation?: string;
+}
 
 export default function QuizReviewScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const fetcher = useCallback(() => reviewService.getCategoryItems('quiz'), []);
+  const { data, loading } = useApi<ReviewQuestion[]>(fetcher);
+
+  const questions = data ?? [];
+  const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [answered, setAnswered] = useState(false);
-  const [correct, setCorrect] = useState(0);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
 
-  const q = REVIEW_QUESTIONS[currentIndex];
-  const total = REVIEW_QUESTIONS.length;
+  const current = questions[currentIdx];
 
-  const handleSelect = useCallback((idx: number) => {
-    if (answered) return;
+  const handleSelect = (idx: number) => {
+    if (selected !== null) return;
     setSelected(idx);
-    setAnswered(true);
-    if (idx === q.correctIndex) setCorrect((c) => c + 1);
-  }, [answered, q]);
+    setIsCorrect(idx === current.correctAnswer);
+  };
 
   const handleNext = () => {
-    if (currentIndex < total - 1) {
-      setCurrentIndex((i) => i + 1);
+    if (currentIdx < questions.length - 1) {
+      setCurrentIdx(i => i + 1);
       setSelected(null);
-      setAnswered(false);
+      setIsCorrect(null);
     } else {
-      navigation.goBack();
+      handleComplete();
     }
   };
 
-  const getState = (idx: number) => {
-    if (!answered) return 'default';
-    if (idx === q.correctIndex) return 'correct';
-    if (idx === selected) return 'wrong';
-    return 'default';
+  const handleComplete = async () => {
+    try { await reviewService.completeReview('quiz'); } catch {}
+    navigation.goBack();
   };
 
-  return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Feather name="x" size={24} color="#AFAFAF" />
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
+        <Text style={{ fontSize: 48, marginBottom: 12 }}>📝</Text>
+        <Text style={styles.emptyText}>복습할 퀴즈가 없습니다</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.backBtnText}>돌아가기</Text>
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <ProgressIndicator current={currentIndex + 1} total={total} height={6} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
+        <BackButton />
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: `${((currentIdx + 1) / questions.length) * 100}%` }]} />
         </View>
+        <Text style={styles.counter}>{currentIdx + 1}/{questions.length}</Text>
       </View>
-      <View style={styles.content}>
-        <Animated.View key={currentIndex} entering={FadeInDown.duration(400)}>
-          <Text style={styles.counter}>복습 {currentIndex + 1}/{total}</Text>
-          <Text style={styles.question}>{q.question}</Text>
-          <View style={styles.options}>
-            {q.options.map((opt, idx) => (
-              <QuizOption key={idx} label={LABELS[idx]} text={opt} state={getState(idx) as any} onPress={() => handleSelect(idx)} disabled={answered} />
-            ))}
-          </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Animated.View entering={FadeInDown.duration(400)} key={currentIdx}>
+          <Text style={styles.question}>{current.question}</Text>
         </Animated.View>
-      </View>
-      {answered && (
-        <Animated.View entering={FadeInUp.duration(300)} style={styles.footer}>
-          <TouchableOpacity style={styles.btn} onPress={handleNext} activeOpacity={0.8}>
-            <Text style={styles.btnText}>{currentIndex < total - 1 ? '다음' : '완료'}</Text>
+
+        <View style={styles.options}>
+          {current.options.map((opt, idx) => {
+            let style = styles.option;
+            let tColor = colors.text.primary;
+            if (selected !== null) {
+              if (idx === current.correctAnswer) {
+                style = { ...styles.option, borderColor: '#16A34A', backgroundColor: '#F0FFF4' };
+                tColor = '#16A34A';
+              } else if (idx === selected && !isCorrect) {
+                style = { ...styles.option, borderColor: colors.status.error, backgroundColor: '#FFF5F5' };
+                tColor = colors.status.error;
+              }
+            }
+            return (
+              <Animated.View entering={FadeInDown.delay(idx * 60).duration(300)} key={idx}>
+                <TouchableOpacity style={style} onPress={() => handleSelect(idx)} disabled={selected !== null} activeOpacity={0.7}>
+                  <Text style={[styles.optText, { color: tColor }]}>{opt}</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          })}
+        </View>
+
+        {selected !== null && current.explanation && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.explanation}>
+            <Text style={styles.explanationText}>{current.explanation}</Text>
+          </Animated.View>
+        )}
+      </ScrollView>
+
+      {selected !== null && (
+        <Animated.View entering={FadeIn.duration(300)} style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity style={styles.nextBtn} onPress={handleNext} activeOpacity={0.8}>
+            <Text style={styles.nextBtnText}>{currentIdx < questions.length - 1 ? '다음' : '완료'}</Text>
+            <Feather name="arrow-right" size={20} color="#FFF" />
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -85,13 +133,23 @@ export default function QuizReviewScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 16, gap: 12 },
-  content: { flex: 1, paddingHorizontal: 24 },
-  counter: { fontSize: 13, color: '#AFAFAF', marginBottom: 8 },
-  question: { fontSize: 22, fontWeight: '700', color: '#4B4B4B', marginBottom: 28 },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, gap: 12, marginBottom: 16 },
+  progressBar: { flex: 1, height: 8, backgroundColor: colors.border.light, borderRadius: 4, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: colors.primary.main, borderRadius: 4 },
+  counter: { ...typography.caption, color: colors.text.secondary },
+  content: { paddingHorizontal: 24, paddingBottom: 120 },
+  question: { ...typography.h2, color: colors.text.primary, marginBottom: 32, lineHeight: 32 },
   options: { gap: 12 },
-  footer: { paddingHorizontal: 24, paddingBottom: 48, paddingTop: 12 },
-  btn: { backgroundColor: '#58CC02', borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
-  btnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  option: { backgroundColor: colors.background.secondary, borderRadius: 16, padding: 16, borderWidth: 2, borderColor: 'transparent' },
+  optText: { ...typography.body },
+  explanation: { marginTop: 20, backgroundColor: '#FFF7ED', borderRadius: 12, padding: 16 },
+  explanationText: { ...typography.small, color: '#92400E' },
+  footer: { paddingHorizontal: 24, paddingTop: 12 },
+  nextBtn: { flexDirection: 'row', backgroundColor: colors.primary.main, borderRadius: 16, paddingVertical: 16, justifyContent: 'center', alignItems: 'center', gap: 8 },
+  nextBtnText: { ...typography.button, color: '#FFF', fontSize: 18 },
+  emptyText: { ...typography.body, color: colors.text.secondary, marginBottom: 16 },
+  backBtn: { backgroundColor: colors.primary.main, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
+  backBtnText: { ...typography.button, color: '#FFF' },
 });

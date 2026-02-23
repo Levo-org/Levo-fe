@@ -1,113 +1,191 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Alert, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
 import BackButton from '../../components/BackButton';
+import { subscriptionService } from '../../services/subscription.service';
+import { useApi } from '../../hooks/useApi';
+import { colors } from '../../theme/colors';
+import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Premium'>;
 
+interface SubscriptionData {
+  isActive: boolean;
+  plan?: string;
+  expiresAt?: string;
+}
+
 const FEATURES = [
-  { emoji: '❤️', title: '무제한 하트', desc: '하트 걱정 없이 학습하세요' },
-  { emoji: '🚫', title: '광고 제거', desc: '방해 없는 학습 환경' },
-  { emoji: '🛡️', title: '무료 스트릭 실드', desc: '매월 스트릭 실드 2개 지급' },
-  { emoji: '⚡', title: 'XP 부스트', desc: '항상 XP 1.5배 획득' },
-  { emoji: '📚', title: '프리미엄 콘텐츠', desc: '독점 레슨과 학습 자료' },
-  { emoji: '🎯', title: '상세 분석', desc: '학습 패턴과 취약점 분석' },
+  { emoji: '❤️', title: '무제한 하트', desc: '하트 걱정 없이 학습' },
+  { emoji: '🚫', title: '광고 제거', desc: '모든 광고 없이 쾌적하게' },
+  { emoji: '⚡', title: 'XP 부스트', desc: '항상 1.5배 XP 획득' },
+  { emoji: '🛡️', title: '스트릭 보호', desc: '월 2회 자동 보호' },
+  { emoji: '📝', title: '추가 퀴즈', desc: '프리미엄 전용 문제' },
+  { emoji: '📊', title: '상세 통계', desc: '학습 분석 리포트' },
 ];
 
 export default function PremiumScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const handleSubscribe = (plan: string) => {
-    Alert.alert('구독', `${plan} 구독을 시작하시겠습니까?`, [
-      { text: '취소', style: 'cancel' },
-      { text: '구독', onPress: () => {} },
-    ]);
+  const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
+  const [subscribing, setSubscribing] = useState(false);
+
+  const fetcher = useCallback(() => subscriptionService.getSubscription(), []);
+  const { data, loading } = useApi<SubscriptionData>(fetcher);
+
+  const isActive = data?.isActive ?? false;
+
+  const handleSubscribe = async () => {
+    setSubscribing(true);
+    try {
+      const platform = Platform.OS === 'ios' ? 'apple' : 'google';
+      const res = await subscriptionService.subscribe(selectedPlan, 'mock_receipt', platform as 'apple' | 'google');
+      if (res.data?.success) {
+        Alert.alert('구독 완료', '프리미엄 구독이 시작되었습니다! 🎉', [
+          { text: '확인', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        Alert.alert('실패', res.data?.message ?? '구독에 실패했습니다');
+      }
+    } catch (e: any) {
+      Alert.alert('오류', e?.response?.data?.message ?? '구독에 실패했습니다');
+    } finally {
+      setSubscribing(false);
+    }
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
+
+  if (isActive) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.header}>
+          <BackButton />
+          <Text style={styles.headerTitle}>프리미엄</Text>
+          <View style={{ width: 32 }} />
+        </View>
+        <View style={styles.center}>
+          <Text style={{ fontSize: 60, marginBottom: 16 }}>👑</Text>
+          <Text style={styles.activeTitle}>프리미엄 사용 중</Text>
+          <Text style={styles.activeDesc}>
+            {data?.plan === 'yearly' ? '연간 구독' : '월간 구독'}
+            {data?.expiresAt ? ` · ${new Date(data.expiresAt).toLocaleDateString()}까지` : ''}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <BackButton color="#FFFFFF" />
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
+        <BackButton />
+        <Text style={styles.headerTitle}>프리미엄</Text>
+        <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.heroSection}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Hero */}
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.hero}>
           <Text style={styles.heroEmoji}>👑</Text>
-          <Text style={styles.heroTitle}>LEVO Premium</Text>
-          <Text style={styles.heroDesc}>더 빠르고 효과적인 학습을 경험하세요</Text>
+          <Text style={styles.heroTitle}>Levo 프리미엄</Text>
+          <Text style={styles.heroDesc}>더 빠른 학습, 더 많은 기능</Text>
         </Animated.View>
 
-        <View style={styles.features}>
-          {FEATURES.map((feat, idx) => (
-            <Animated.View key={idx} entering={FadeInDown.delay(200 + idx * 60).duration(400)} style={styles.featureRow}>
-              <Text style={styles.featureEmoji}>{feat.emoji}</Text>
+        {/* Features */}
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.features}>
+          {FEATURES.map((f, idx) => (
+            <View key={idx} style={styles.featureRow}>
+              <Text style={styles.featureEmoji}>{f.emoji}</Text>
               <View style={styles.featureInfo}>
-                <Text style={styles.featureTitle}>{feat.title}</Text>
-                <Text style={styles.featureDesc}>{feat.desc}</Text>
+                <Text style={styles.featureTitle}>{f.title}</Text>
+                <Text style={styles.featureDesc}>{f.desc}</Text>
               </View>
-            </Animated.View>
-          ))}
-        </View>
-
-        <Animated.View entering={FadeInUp.delay(600).duration(500)} style={styles.plans}>
-          <TouchableOpacity
-            style={[styles.planCard, styles.yearlyPlan]}
-            onPress={() => handleSubscribe('연간')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.saveBadge}>
-              <Text style={styles.saveText}>33% 할인</Text>
             </View>
-            <Text style={styles.planTitle}>연간 플랜</Text>
-            <Text style={styles.planPrice}>₩79,900/년</Text>
-            <Text style={styles.planSub}>월 ₩6,658</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.planCard}
-            onPress={() => handleSubscribe('월간')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.planTitle}>월간 플랜</Text>
-            <Text style={styles.planPrice}>₩9,900/월</Text>
-          </TouchableOpacity>
+          ))}
         </Animated.View>
 
-        <Text style={styles.legalText}>
-          구독은 자동으로 갱신됩니다. 언제든지 취소할 수 있습니다.
-        </Text>
+        {/* Plans */}
+        <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.plans}>
+          <TouchableOpacity
+            style={[styles.planCard, selectedPlan === 'yearly' && styles.planSelected]}
+            onPress={() => setSelectedPlan('yearly')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.planBadge}>
+              <Text style={styles.planBadgeText}>인기</Text>
+            </View>
+            <Text style={styles.planName}>연간</Text>
+            <Text style={styles.planPrice}>₩79,900</Text>
+            <Text style={styles.planMeta}>월 ₩6,658 · 50% 할인</Text>
+          </TouchableOpacity>
 
-        <View style={{ height: 48 }} />
+          <TouchableOpacity
+            style={[styles.planCard, selectedPlan === 'monthly' && styles.planSelected]}
+            onPress={() => setSelectedPlan('monthly')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.planName}>월간</Text>
+            <Text style={styles.planPrice}>₩9,900</Text>
+            <Text style={styles.planMeta}>매월 결제</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <TouchableOpacity
+          style={styles.subscribeBtn}
+          onPress={handleSubscribe}
+          disabled={subscribing}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.subscribeBtnText}>
+            {subscribing ? '처리 중...' : `${selectedPlan === 'yearly' ? '연간' : '월간'} 구독 시작`}
+          </Text>
+        </TouchableOpacity>
+        <Text style={styles.disclaimer}>언제든지 취소 가능</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#CE82FF' },
-  header: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20 },
-  heroSection: { alignItems: 'center', paddingTop: 12, paddingBottom: 32 },
-  heroEmoji: { fontSize: 64, marginBottom: 12 },
-  heroTitle: { fontSize: 32, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
-  heroDesc: { fontSize: 16, color: 'rgba(255,255,255,0.8)', textAlign: 'center' },
-  features: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20, padding: 20, gap: 16, marginBottom: 24 },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 8 },
+  headerTitle: { ...typography.h3, color: colors.text.primary },
+  content: { paddingHorizontal: 20, paddingBottom: 120 },
+  hero: { alignItems: 'center', paddingVertical: 24 },
+  heroEmoji: { fontSize: 56, marginBottom: 12 },
+  heroTitle: { ...typography.h1, color: colors.text.primary, marginBottom: 4 },
+  heroDesc: { ...typography.body, color: colors.text.secondary },
+  features: { backgroundColor: colors.background.secondary, borderRadius: 20, padding: 20, marginBottom: 24, gap: 16 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   featureEmoji: { fontSize: 24 },
   featureInfo: { flex: 1 },
-  featureTitle: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  featureDesc: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
-  plans: { gap: 12, marginBottom: 16 },
-  planCard: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  yearlyPlan: { borderColor: '#FFC800', backgroundColor: 'rgba(255,255,255,0.25)' },
-  saveBadge: { position: 'absolute', top: -10, right: 16, backgroundColor: '#FFC800', paddingVertical: 3, paddingHorizontal: 10, borderRadius: 8 },
-  saveText: { fontSize: 11, fontWeight: '800', color: '#4B4B4B' },
-  planTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
-  planPrice: { fontSize: 24, fontWeight: '800', color: '#FFFFFF' },
-  planSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
-  legalText: { fontSize: 11, color: 'rgba(255,255,255,0.5)', textAlign: 'center' },
+  featureTitle: { ...typography.body, color: colors.text.primary, fontWeight: '600' },
+  featureDesc: { ...typography.small, color: colors.text.secondary },
+  plans: { flexDirection: 'row', gap: 12 },
+  planCard: { flex: 1, backgroundColor: colors.background.secondary, borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  planSelected: { borderColor: colors.primary.main, backgroundColor: colors.primary.light },
+  planBadge: { position: 'absolute', top: -10, right: -10, backgroundColor: colors.status.error, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
+  planBadgeText: { ...typography.small, color: '#FFF', fontWeight: '700', fontSize: 10 },
+  planName: { ...typography.caption, color: colors.text.secondary, marginBottom: 4 },
+  planPrice: { ...typography.h2, color: colors.text.primary, marginBottom: 4 },
+  planMeta: { ...typography.small, color: colors.text.tertiary, textAlign: 'center' },
+  footer: { paddingHorizontal: 20, paddingTop: 12 },
+  subscribeBtn: { backgroundColor: colors.primary.main, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginBottom: 8 },
+  subscribeBtnText: { ...typography.button, color: '#FFF', fontSize: 18 },
+  disclaimer: { ...typography.small, color: colors.text.tertiary, textAlign: 'center' },
+  activeTitle: { ...typography.h2, color: colors.text.primary, marginBottom: 8 },
+  activeDesc: { ...typography.body, color: colors.text.secondary },
 });

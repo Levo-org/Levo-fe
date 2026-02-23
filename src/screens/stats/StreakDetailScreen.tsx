@@ -1,121 +1,149 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../types';
+import type { RootStackParamList, StreakData } from '../../types';
 import BackButton from '../../components/BackButton';
+import { streakService } from '../../services/streak.service';
+import { useApi } from '../../hooks/useApi';
 import { useUserStore } from '../../stores/userStore';
+import { colors } from '../../theme/colors';
+import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StreakDetail'>;
-
-const WEEK_DAYS = [
-  { day: '월', completed: true },
-  { day: '화', completed: true },
-  { day: '수', completed: true },
-  { day: '목', completed: true },
-  { day: '금', completed: false },
-  { day: '토', completed: false },
-  { day: '일', completed: false },
-];
 
 export default function StreakDetailScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { streak } = useUserStore();
 
+  const fetcher = useCallback(() => streakService.getStreak(), []);
+  const { data, loading, refetch } = useApi<StreakData>(fetcher);
+
+  const currentStreak = data?.currentStreak ?? streak;
+  const longestStreak = data?.longestStreak ?? 0;
+  const shieldsRemaining = data?.shieldsRemaining ?? 0;
+  const weekDays = data?.weekDays ?? [];
+
+  const handleUseShield = async () => {
+    try {
+      const res = await streakService.useShield();
+      if (res.data?.success) {
+        refetch();
+        Alert.alert('성공', '스트릭 실드가 적용되었습니다! 🛡️');
+      } else {
+        Alert.alert('실패', res.data?.message ?? '실드 사용에 실패했습니다');
+      }
+    } catch (e: any) {
+      Alert.alert('오류', e?.response?.data?.message ?? '실드 사용에 실패했습니다');
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
         <BackButton />
         <Text style={styles.headerTitle}>스트릭</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.mainCard}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Main Streak */}
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.streakCard}>
           <Text style={styles.fireEmoji}>🔥</Text>
-          <Text style={styles.streakCount}>{streak}</Text>
+          <Text style={styles.streakNumber}>{currentStreak}</Text>
           <Text style={styles.streakLabel}>일 연속 학습</Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.weekCard}>
-          <Text style={styles.weekTitle}>이번 주</Text>
-          <View style={styles.weekRow}>
-            {WEEK_DAYS.map((d) => (
-              <View key={d.day} style={styles.dayItem}>
-                <View style={[styles.dayCircle, d.completed && styles.dayCircleCompleted]}>
-                  {d.completed ? (
-                    <Feather name="check" size={16} color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.dayDot}>•</Text>
-                  )}
+        {/* Week Calendar */}
+        {weekDays.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.weekCard}>
+            <Text style={styles.weekTitle}>이번 주</Text>
+            <View style={styles.weekRow}>
+              {weekDays.map((day, idx) => (
+                <View key={idx} style={styles.dayCol}>
+                  <View style={[styles.dayCircle, day.completed && styles.dayCompleted]}>
+                    {day.completed ? (
+                      <Feather name="check" size={16} color="#FFF" />
+                    ) : (
+                      <Text style={styles.dayDot}>·</Text>
+                    )}
+                  </View>
+                  <Text style={[styles.dayLabel, day.completed && styles.dayLabelActive]}>
+                    {day.day}
+                  </Text>
                 </View>
-                <Text style={[styles.dayLabel, d.completed && styles.dayLabelCompleted]}>{d.day}</Text>
-              </View>
-            ))}
-          </View>
-        </Animated.View>
-
-        <View style={styles.statsRow}>
-          <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.statItem}>
-            <Text style={styles.statValue}>{streak}</Text>
-            <Text style={styles.statLabel}>현재 스트릭</Text>
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.statItem}>
-            <Text style={styles.statValue}>45</Text>
-            <Text style={styles.statLabel}>최장 스트릭</Text>
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(500).duration(400)} style={styles.statItem}>
-            <Text style={styles.statValue}>2</Text>
-            <Text style={styles.statLabel}>스트릭 실드</Text>
-          </Animated.View>
-        </View>
-
-        <Animated.View entering={FadeInDown.delay(600).duration(400)} style={styles.shieldCard}>
-          <View style={styles.shieldLeft}>
-            <Text style={styles.shieldEmoji}>🛡️</Text>
-            <View>
-              <Text style={styles.shieldTitle}>스트릭 실드</Text>
-              <Text style={styles.shieldDesc}>하루 놓쳐도 스트릭이 유지돼요</Text>
+              ))}
             </View>
+          </Animated.View>
+        )}
+
+        {/* Stats */}
+        <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statEmoji}>🏆</Text>
+            <Text style={styles.statValue}>{longestStreak}</Text>
+            <Text style={styles.statLabel}>최장 기록</Text>
           </View>
-          <Text style={styles.shieldCount}>2개 보유</Text>
+          <View style={styles.statCard}>
+            <Text style={styles.statEmoji}>🛡️</Text>
+            <Text style={styles.statValue}>{shieldsRemaining}</Text>
+            <Text style={styles.statLabel}>실드 보유</Text>
+          </View>
         </Animated.View>
 
-        <View style={{ height: 32 }} />
+        {/* Shield */}
+        {shieldsRemaining > 0 && (
+          <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+            <TouchableOpacity style={styles.shieldBtn} onPress={handleUseShield} activeOpacity={0.7}>
+              <Text style={{ fontSize: 20 }}>🛡️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.shieldTitle}>스트릭 실드 사용</Text>
+                <Text style={styles.shieldDesc}>오늘 학습을 놓쳐도 스트릭 유지</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={colors.primary.main} />
+            </TouchableOpacity>
+          </Animated.View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#4B4B4B' },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
-  mainCard: { alignItems: 'center', backgroundColor: '#FFF8E1', borderRadius: 24, padding: 32, marginBottom: 20, gap: 4 },
-  fireEmoji: { fontSize: 56 },
-  streakCount: { fontSize: 48, fontWeight: '800', color: '#FF9600' },
-  streakLabel: { fontSize: 16, color: '#AFAFAF' },
-  weekCard: { backgroundColor: '#F7F7F7', borderRadius: 16, padding: 20, marginBottom: 20 },
-  weekTitle: { fontSize: 16, fontWeight: '700', color: '#4B4B4B', marginBottom: 16 },
-  weekRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  dayItem: { alignItems: 'center', gap: 6 },
-  dayCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#E5E5E5', justifyContent: 'center', alignItems: 'center' },
-  dayCircleCompleted: { backgroundColor: '#58CC02' },
-  dayDot: { fontSize: 16, color: '#AFAFAF' },
-  dayLabel: { fontSize: 12, color: '#AFAFAF', fontWeight: '500' },
-  dayLabelCompleted: { color: '#58CC02', fontWeight: '700' },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  statItem: { flex: 1, backgroundColor: '#F7F7F7', borderRadius: 12, padding: 16, alignItems: 'center', gap: 4 },
-  statValue: { fontSize: 24, fontWeight: '800', color: '#4B4B4B' },
-  statLabel: { fontSize: 11, color: '#AFAFAF' },
-  shieldCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#EDF7FF', borderRadius: 16, padding: 16 },
-  shieldLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  shieldEmoji: { fontSize: 32 },
-  shieldTitle: { fontSize: 15, fontWeight: '700', color: '#4B4B4B' },
-  shieldDesc: { fontSize: 12, color: '#AFAFAF' },
-  shieldCount: { fontSize: 14, fontWeight: '700', color: '#1CB0F6' },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 16 },
+  headerTitle: { ...typography.h3, color: colors.text.primary },
+  content: { paddingHorizontal: 20, paddingBottom: 40 },
+  streakCard: { backgroundColor: '#FFF7ED', borderRadius: 24, padding: 32, alignItems: 'center', marginBottom: 24 },
+  fireEmoji: { fontSize: 56, marginBottom: 8 },
+  streakNumber: { fontSize: 52, fontWeight: '800', color: '#F59E0B', marginBottom: 4 },
+  streakLabel: { ...typography.body, color: '#92400E' },
+  weekCard: { backgroundColor: colors.background.secondary, borderRadius: 20, padding: 20, marginBottom: 20 },
+  weekTitle: { ...typography.h4, color: colors.text.primary, marginBottom: 16 },
+  weekRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  dayCol: { alignItems: 'center', gap: 6 },
+  dayCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.border.light, justifyContent: 'center', alignItems: 'center' },
+  dayCompleted: { backgroundColor: colors.primary.main },
+  dayDot: { color: colors.text.tertiary, fontSize: 20 },
+  dayLabel: { ...typography.small, color: colors.text.tertiary },
+  dayLabelActive: { color: colors.primary.main, fontWeight: '600' },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  statCard: { flex: 1, backgroundColor: colors.background.secondary, borderRadius: 16, padding: 20, alignItems: 'center', gap: 4 },
+  statEmoji: { fontSize: 24 },
+  statValue: { ...typography.h2, color: colors.text.primary },
+  statLabel: { ...typography.small, color: colors.text.secondary },
+  shieldBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary.light, borderRadius: 16, padding: 16, gap: 12 },
+  shieldTitle: { ...typography.body, color: colors.primary.main, fontWeight: '600' },
+  shieldDesc: { ...typography.small, color: colors.text.secondary },
 });

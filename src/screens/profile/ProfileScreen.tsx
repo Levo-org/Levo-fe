@@ -1,132 +1,173 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
-import { useAuthStore } from '../../stores/authStore';
+import { userService } from '../../services/user.service';
+import { useApi } from '../../hooks/useApi';
 import { useUserStore } from '../../stores/userStore';
-import ProgressIndicator from '../../components/ProgressIndicator';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
-export default function ProfileScreen() {
-  const insets = useSafeAreaInsets();
-  const navigation = useNavigation<Nav>();
-  const { user, languageProfile, logout } = useAuthStore();
-  const { xp, userLevel, streak } = useUserStore();
-
-  const handleLogout = () => {
-    Alert.alert('로그아웃', '정말 로그아웃 하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: logout },
-    ]);
+interface ProfileData {
+  user: {
+    name: string;
+    email: string;
+    profileImage?: string;
+    createdAt?: string;
   };
+  languageProfile: {
+    targetLanguage: string;
+    level: string;
+    xp?: number;
+    totalXp?: number;
+    userLevel?: number;
+    lessonsCompleted?: number;
+    wordsLearned?: number;
+    streak?: number;
+    hearts?: number;
+  };
+}
+
+export default function ProfileScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
+  const { hearts, streak, coins, xp, userLevel } = useUserStore();
+
+  const fetcher = useCallback(() => userService.getMe(), []);
+  const { data, loading } = useApi<ProfileData>(fetcher);
+
+  const user = data?.user;
+  const profile = data?.languageProfile;
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.title}>프로필</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')} activeOpacity={0.7}>
-          <Feather name="settings" size={24} color="#4B4B4B" />
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>프로필</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Feather name="settings" size={24} color={colors.text.primary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user?.name?.[0] || '👤'}</Text>
-          </View>
-          <Text style={styles.userName}>{user?.name || '학습자'}</Text>
-          <Text style={styles.userEmail}>{user?.email || 'user@example.com'}</Text>
-          <View style={styles.levelRow}>
-            <Text style={styles.levelBadge}>Lv.{userLevel}</Text>
-            <View style={styles.xpBar}>
-              <ProgressIndicator current={xp % 100} total={100} height={6} color="#58CC02" />
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary.main} />
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Avatar */}
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.avatarSection}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user?.name?.[0]?.toUpperCase() ?? '?'}
+              </Text>
             </View>
-            <Text style={styles.xpText}>{xp % 100}/100</Text>
-          </View>
-        </Animated.View>
+            <Text style={styles.name}>{user?.name ?? '사용자'}</Text>
+            <Text style={styles.email}>{user?.email ?? ''}</Text>
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelText}>Lv.{userLevel}</Text>
+            </View>
+          </Animated.View>
 
-        {/* Quick Stats */}
-        <View style={styles.quickStats}>
-          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.quickItem}>
-            <Text style={styles.quickEmoji}>🔥</Text>
-            <Text style={styles.quickValue}>{streak}일</Text>
-            <Text style={styles.quickLabel}>스트릭</Text>
+          {/* Stats Grid */}
+          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={styles.statEmoji}>🔥</Text>
+              <Text style={styles.statValue}>{profile?.streak ?? streak}</Text>
+              <Text style={styles.statLabel}>스트릭</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statEmoji}>⭐</Text>
+              <Text style={styles.statValue}>{profile?.totalXp ?? xp}</Text>
+              <Text style={styles.statLabel}>총 XP</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statEmoji}>📚</Text>
+              <Text style={styles.statValue}>{profile?.lessonsCompleted ?? 0}</Text>
+              <Text style={styles.statLabel}>레슨 완료</Text>
+            </View>
           </Animated.View>
-          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.quickItem}>
-            <Text style={styles.quickEmoji}>⭐</Text>
-            <Text style={styles.quickValue}>{xp}</Text>
-            <Text style={styles.quickLabel}>총 XP</Text>
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.quickItem}>
-            <Text style={styles.quickEmoji}>📚</Text>
-            <Text style={styles.quickValue}>24</Text>
-            <Text style={styles.quickLabel}>완료 레슨</Text>
-          </Animated.View>
-        </View>
 
-        {/* Menu Items */}
-        <View style={styles.menu}>
-          {[
-            { icon: 'globe' as const, label: '학습 언어', value: languageProfile?.targetLanguage === 'english' ? '영어 🇺🇸' : languageProfile?.targetLanguage === 'japanese' ? '일본어 🇯🇵' : '중국어 🇨🇳', onPress: () => {} },
-              { icon: 'target' as const, label: '일일 목표', value: `${user?.settings?.dailyGoalMinutes || 10}분`, onPress: () => {} },
-            { icon: 'shield' as const, label: '프리미엄', value: '', onPress: () => navigation.navigate('Premium') },
-            { icon: 'shopping-bag' as const, label: '코인 상점', value: '', onPress: () => navigation.navigate('CoinShop') },
-            { icon: 'heart' as const, label: '하트', value: '', onPress: () => navigation.navigate('HeartsDemo') },
-          ].map((item, idx) => (
-            <Animated.View key={item.label} entering={FadeInDown.delay(400 + idx * 60).duration(400)}>
-              <TouchableOpacity style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
-                <Feather name={item.icon} size={20} color="#4B4B4B" />
-                <Text style={styles.menuLabel}>{item.label}</Text>
-                <Text style={styles.menuValue}>{item.value}</Text>
-                <Feather name="chevron-right" size={18} color="#AFAFAF" />
-              </TouchableOpacity>
+          {/* Quick Info */}
+          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.infoSection}>
+            <TouchableOpacity style={styles.infoRow} onPress={() => navigation.navigate('HeartsDemo')}>
+              <Feather name="heart" size={20} color={colors.status.error} />
+              <Text style={styles.infoLabel}>하트</Text>
+              <Text style={styles.infoValue}>{hearts}/5</Text>
+              <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.infoRow} onPress={() => navigation.navigate('CoinShop')}>
+              <Text style={{ fontSize: 18 }}>🪙</Text>
+              <Text style={styles.infoLabel}>코인</Text>
+              <Text style={styles.infoValue}>{coins}</Text>
+              <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.infoRow} onPress={() => navigation.navigate('StreakDetail')}>
+              <Text style={{ fontSize: 18 }}>🔥</Text>
+              <Text style={styles.infoLabel}>스트릭</Text>
+              <Text style={styles.infoValue}>{profile?.streak ?? streak}일</Text>
+              <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.infoRow} onPress={() => navigation.navigate('Badges')}>
+              <Text style={{ fontSize: 18 }}>🏅</Text>
+              <Text style={styles.infoLabel}>뱃지</Text>
+              <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.infoRow} onPress={() => navigation.navigate('Stats')}>
+              <Feather name="bar-chart-2" size={20} color={colors.primary.main} />
+              <Text style={styles.infoLabel}>학습 통계</Text>
+              <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Language */}
+          {profile && (
+            <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.langCard}>
+              <Text style={styles.langTitle}>학습 중인 언어</Text>
+              <Text style={styles.langValue}>{profile.targetLanguage} · {profile.level}</Text>
+              <Text style={styles.langMeta}>단어 {profile.wordsLearned ?? 0}개 학습</Text>
             </Animated.View>
-          ))}
-        </View>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
-          <Feather name="log-out" size={18} color="#FF4B4B" />
-          <Text style={styles.logoutText}>로그아웃</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 32 }} />
-      </ScrollView>
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
-  title: { fontSize: 28, fontWeight: '800', color: '#4B4B4B' },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
-  profileCard: { alignItems: 'center', backgroundColor: '#F7F7F7', borderRadius: 20, padding: 24, marginBottom: 20 },
-  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#58CC02', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  avatarText: { fontSize: 28, fontWeight: '700', color: '#FFFFFF' },
-  userName: { fontSize: 20, fontWeight: '800', color: '#4B4B4B' },
-  userEmail: { fontSize: 13, color: '#AFAFAF', marginBottom: 12 },
-  levelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
-  levelBadge: { fontSize: 13, fontWeight: '800', color: '#58CC02', backgroundColor: '#E8F7E0', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 8 },
-  xpBar: { flex: 1 },
-  xpText: { fontSize: 11, color: '#AFAFAF', width: 42, textAlign: 'right' },
-  quickStats: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  quickItem: { flex: 1, backgroundColor: '#F7F7F7', borderRadius: 12, padding: 14, alignItems: 'center', gap: 4 },
-  quickEmoji: { fontSize: 20 },
-  quickValue: { fontSize: 18, fontWeight: '800', color: '#4B4B4B' },
-  quickLabel: { fontSize: 11, color: '#AFAFAF' },
-  menu: { gap: 2, marginBottom: 20 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12 },
-  menuLabel: { fontSize: 15, fontWeight: '600', color: '#4B4B4B', flex: 1 },
-  menuValue: { fontSize: 14, color: '#AFAFAF', marginRight: 4 },
-  logoutButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#FFEBEE' },
-  logoutText: { fontSize: 15, fontWeight: '600', color: '#FF4B4B' },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 16 },
+  headerTitle: { ...typography.h2, color: colors.text.primary },
+  content: { paddingHorizontal: 20, paddingBottom: 40 },
+  avatarSection: { alignItems: 'center', marginBottom: 24 },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primary.main, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  avatarText: { fontSize: 32, fontWeight: '700', color: '#FFF' },
+  name: { ...typography.h2, color: colors.text.primary, marginBottom: 4 },
+  email: { ...typography.small, color: colors.text.secondary, marginBottom: 8 },
+  levelBadge: { backgroundColor: colors.primary.light, paddingHorizontal: 14, paddingVertical: 4, borderRadius: 12 },
+  levelText: { ...typography.caption, color: colors.primary.main, fontWeight: '700' },
+  statsGrid: { flexDirection: 'row', backgroundColor: colors.background.secondary, borderRadius: 20, padding: 20, marginBottom: 24, alignItems: 'center' },
+  statItem: { flex: 1, alignItems: 'center', gap: 4 },
+  statEmoji: { fontSize: 20 },
+  statValue: { ...typography.h3, color: colors.text.primary },
+  statLabel: { ...typography.small, color: colors.text.secondary },
+  statDivider: { width: 1, height: 40, backgroundColor: colors.border.light },
+  infoSection: { backgroundColor: colors.background.secondary, borderRadius: 16, marginBottom: 24, overflow: 'hidden' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border.light },
+  infoLabel: { flex: 1, ...typography.body, color: colors.text.primary },
+  infoValue: { ...typography.body, color: colors.text.secondary, marginRight: 4 },
+  langCard: { backgroundColor: colors.background.secondary, borderRadius: 16, padding: 20 },
+  langTitle: { ...typography.small, color: colors.text.secondary, marginBottom: 4 },
+  langValue: { ...typography.h4, color: colors.text.primary, marginBottom: 4 },
+  langMeta: { ...typography.small, color: colors.text.tertiary },
 });

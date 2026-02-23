@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -8,16 +8,20 @@ import type { RootStackParamList } from '../../types';
 import BackButton from '../../components/BackButton';
 import ProgressIndicator from '../../components/ProgressIndicator';
 import QuizOption from '../../components/QuizOption';
+import { listeningService } from '../../services/listening.service';
+import { useApi } from '../../hooks/useApi';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ListeningPractice'>;
 
-const MOCK_PROBLEMS = [
-  { id: 1, question: '들은 내용과 일치하는 것은?', options: ['공원에 갔다', '카페에서 커피를 마셨다', '집에서 쉬었다', '도서관에서 공부했다'], correctIndex: 1 },
-  { id: 2, question: '화자가 내일 할 일은?', options: ['영화 보기', '쇼핑하기', '친구 만나기', '여행 가기'], correctIndex: 2 },
-  { id: 3, question: '대화가 이루어지는 장소는?', options: ['학교', '병원', '식당', '공항'], correctIndex: 3 },
-];
+interface ListeningProblem {
+  _id: string;
+  question: string;
+  audioUrl?: string;
+  options: string[];
+  correctIndex?: number;
+}
 
 const LABELS = ['A', 'B', 'C', 'D'];
 
@@ -28,15 +32,34 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
+  const [serverCorrectIdx, setServerCorrectIdx] = useState<number | null>(null);
 
-  const problem = MOCK_PROBLEMS[currentIndex];
-  const totalProblems = MOCK_PROBLEMS.length;
+  const fetcher = useCallback(() => listeningService.getProblems(), []);
+  const { data: problems, loading } = useApi<ListeningProblem[]>(fetcher);
 
-  const handleSelect = useCallback((index: number) => {
-    if (answered) return;
+  const allProblems = problems ?? [];
+  const problem = allProblems[currentIndex];
+  const totalProblems = allProblems.length;
+
+  const handleSelect = useCallback(async (index: number) => {
+    if (answered || !problem) return;
     setSelectedAnswer(index);
     setAnswered(true);
-    if (index === problem.correctIndex) setCorrectCount((c) => c + 1);
+
+    try {
+      const res = await listeningService.answerProblem(problem._id, problem.options[index]);
+      const result = res.data?.data;
+      if (result) {
+        if (result.correct) setCorrectCount((c) => c + 1);
+        // Find correct index from correctAnswer string
+        const cIdx = problem.options.findIndex((o) => o === result.correctAnswer);
+        setServerCorrectIdx(cIdx >= 0 ? cIdx : null);
+      }
+    } catch {
+      if (problem.correctIndex !== undefined && index === problem.correctIndex) {
+        setCorrectCount((c) => c + 1);
+      }
+    }
   }, [answered, problem]);
 
   const handleNext = () => {
@@ -45,6 +68,7 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
       setSelectedAnswer(null);
       setAnswered(false);
       setIsPlaying(false);
+      setServerCorrectIdx(null);
     } else {
       navigation.goBack();
     }
@@ -52,10 +76,31 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
 
   const getOptionState = (index: number) => {
     if (!answered) return 'default';
-    if (index === problem.correctIndex) return 'correct';
+    const correctIdx = serverCorrectIdx ?? problem?.correctIndex;
+    if (index === correctIdx) return 'correct';
     if (index === selectedAnswer) return 'wrong';
     return 'default';
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
+
+  if (!problem) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>🎧</Text>
+        <Text style={{ ...typography.body, color: colors.text.secondary }}>듣기 문제가 없습니다</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 24 }}>
+          <Text style={{ ...typography.button, color: colors.primary.main }}>돌아가기</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -77,18 +122,10 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
           >
             <Feather name={isPlaying ? 'pause' : 'play'} size={32} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.audioHint}>
-            {isPlaying ? '재생 중...' : '탭하여 듣기'}
-          </Text>
+          <Text style={styles.audioHint}>{isPlaying ? '재생 중...' : '탭하여 듣기'}</Text>
           <View style={styles.waveform}>
             {[...Array(20)].map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.waveBar,
-                  { height: Math.random() * 20 + 8, opacity: isPlaying ? 1 : 0.3 },
-                ]}
-              />
+              <View key={i} style={[styles.waveBar, { height: Math.random() * 20 + 8, opacity: isPlaying ? 1 : 0.3 }]} />
             ))}
           </View>
         </Animated.View>
@@ -112,9 +149,7 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
       {answered && (
         <Animated.View entering={FadeInUp.duration(300)} style={styles.footer}>
           <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.8}>
-            <Text style={styles.nextButtonText}>
-              {currentIndex < totalProblems - 1 ? '다음' : '완료'}
-            </Text>
+            <Text style={styles.nextButtonText}>{currentIndex < totalProblems - 1 ? '다음' : '완료'}</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -124,7 +159,7 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 0, paddingBottom: 16, gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, gap: 12 },
   progressWrapper: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 24 },
   counter: { fontSize: 13, color: '#AFAFAF', marginBottom: 12 },

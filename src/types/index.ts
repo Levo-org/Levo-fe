@@ -50,6 +50,8 @@ export type RootStackParamList = {
   ReadingReview: Record<string, any> | undefined;
   QuizReview: Record<string, any> | undefined;
   // Others
+  Profile: Record<string, any> | undefined;
+  Stats: Record<string, any> | undefined;
   StreakDetail: Record<string, any> | undefined;
   Badges: Record<string, any> | undefined;
   CoinShop: Record<string, any> | undefined;
@@ -158,10 +160,14 @@ export interface Lesson {
 export interface Badge {
   _id: string;
   emoji: string;
+  icon?: string;
   name: string;
+  description: string;
   category: string;
   achieved: boolean;
+  earned: boolean;
   achievedAt?: string;
+  earnedAt?: string;
   condition?: string;
 }
 
@@ -170,7 +176,9 @@ export interface StreakData {
   longestStreak: number;
   todayCompleted: boolean;
   weeklyRecord: WeekDay[];
+  weekDays: WeekDay[];
   streakShields: number;
+  shieldsRemaining: number;
   nextMilestone: { target: number; remaining: number };
   isInDanger: boolean;
   hoursUntilReset: number;

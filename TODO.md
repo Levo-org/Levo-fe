@@ -85,32 +85,39 @@
 
 ---
 
-### Phase 11: API 연동 (TODO — 아직 미연동)
-- [ ] Home 화면 ← GET /home (homeService)
-- [ ] Vocabulary 화면 ← GET /vocabulary (vocabularyService)
-- [ ] Flashcard 화면 ← GET /vocabulary/:chapter/flashcards
-- [ ] Grammar 화면 ← GET /grammar (grammarService)
-- [ ] GrammarDetail 화면 ← GET /grammar/:id
-- [ ] GrammarQuiz 화면 ← POST /grammar/:id/quiz
-- [ ] Conversation 화면 ← GET /conversations (conversationService)
-- [ ] ConversationDialog ← GET /conversations/:id
-- [ ] ListeningPractice ← GET /listening (listeningService)
-- [ ] ReadingPractice ← GET /reading (readingService)
-- [ ] LessonMap 화면 ← GET /lessons (lessonService)
-- [ ] LessonStart ← GET /lessons/:id
-- [ ] LessonQuiz ← POST /lessons/:id/quiz
-- [ ] LessonComplete ← POST /lessons/:id/complete
-- [ ] QuizSystem ← GET /quiz, POST /quiz/submit
-- [ ] Review 화면 ← GET /review (reviewService)
-- [ ] VocabularyReview ← GET /review/vocabulary
-- [ ] GrammarReview ← GET /review/grammar
-- [ ] Stats 화면 ← GET /stats (statsService)
-- [ ] Streak 화면 ← GET /streak (streakService)
-- [ ] Badges 화면 ← GET /badges (badgeService)
-- [ ] Profile 화면 ← GET /users/me (userService)
-- [ ] Hearts 시스템 ← GET/POST /hearts (heartService)
-- [ ] CoinShop ← GET /coins, POST /coins/purchase
-- [ ] Subscription ← GET/POST /subscription
+### Phase 11: API 연동 ✅ (완료)
+- [x] useApi<T> 범용 훅 생성 (loading/error/refetch 패턴)
+- [x] Home 화면 ← GET /home (homeService)
+- [x] Vocabulary 화면 ← GET /vocabulary (vocabularyService)
+- [x] Flashcard 화면 ← GET /vocabulary/:chapter/flashcards
+- [x] Grammar 화면 ← GET /grammar (grammarService)
+- [x] GrammarDetail 화면 ← GET /grammar/:id
+- [x] GrammarQuiz 화면 ← POST /grammar/:id/quiz
+- [x] Conversation 화면 ← GET /conversations (conversationService)
+- [x] ConversationDialog ← GET /conversations/:id
+- [x] ConversationPractice ← POST /conversations/:id/practice
+- [x] ListeningPractice ← GET /listening (listeningService)
+- [x] ReadingPractice ← GET /reading (readingService)
+- [x] LessonStart ← GET /lessons/:id
+- [x] LessonQuiz ← GET /lessons/:id (questions)
+- [x] LessonComplete ← POST /lessons/:id/complete
+- [x] QuizSystem ← GET /quiz/daily, POST /quiz/answer, POST /quiz/complete
+- [x] Review 화면 ← GET /review (reviewService)
+- [x] VocabularyReview ← GET /review/vocabulary
+- [x] GrammarReview ← GET /review/grammar
+- [x] ConversationReview ← GET /review/conversation
+- [x] ListeningReview ← GET /review/listening
+- [x] ReadingReview ← GET /review/reading
+- [x] QuizReview ← GET /review/quiz
+- [x] Stats 화면 ← GET /stats (statsService)
+- [x] Streak 화면 ← GET /streak (streakService) + POST /streak/shield
+- [x] Badges 화면 ← GET /badges (badgeService)
+- [x] Profile 화면 ← GET /users/me (userService)
+- [x] Settings 화면 ← PATCH /users/me/settings (userService)
+- [x] Hearts 시스템 ← GET/POST /hearts (heartService)
+- [x] CoinShop ← GET /coins, POST /coins/earn
+- [x] CoinShopUse ← POST /coins/spend
+- [x] Premium/Subscription ← GET/POST /subscription
 
 ### Phase 12: 추가 개선
 - [ ] 에러 핸들링 통합 (toast/alert)
@@ -133,4 +140,4 @@
 | 상태 스토어 | 5 | 5 | ✅ |
 | 인증 플로우 | ✅ | - | dev-login + SecureStore + 로그아웃 |
 | SafeArea | ✅ | - | 32개 화면 + 설정/웰컴 |
-| API 실연동 | 0 | 25 | Phase 11 |
+| API 실연동 | 32 | 32 | ✅ Phase 11 완료 |

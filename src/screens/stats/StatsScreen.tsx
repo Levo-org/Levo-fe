@@ -1,137 +1,162 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
+import BackButton from '../../components/BackButton';
+import { statsService } from '../../services/stats.service';
+import { useApi } from '../../hooks/useApi';
 import { useUserStore } from '../../stores/userStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Stats'>;
 
-const PERIODS = ['주', '월', '전체'];
-const WEEK_DATA = [
-  { day: '월', xp: 45 },
-  { day: '화', xp: 80 },
-  { day: '수', xp: 30 },
-  { day: '목', xp: 65 },
-  { day: '금', xp: 90 },
-  { day: '토', xp: 50 },
-  { day: '일', xp: 20 },
-];
+interface StatsData {
+  weeklyXp: { day: string; xp: number }[];
+  totalStudyMinutes: number;
+  accuracy: number;
+  lessonsCompleted: number;
+  wordsLearned: number;
+  quizzesCompleted: number;
+}
 
-export default function StatsScreen() {
+const PERIODS = ['주', '월', '전체'] as const;
+const PERIOD_MAP: Record<string, 'week' | 'month' | 'all'> = { '주': 'week', '월': 'month', '전체': 'all' };
+
+export default function StatsScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<Nav>();
-  const { xp, streak, userLevel } = useUserStore();
-  const [activePeriod, setActivePeriod] = useState(0);
-  const maxXp = Math.max(...WEEK_DATA.map((d) => d.xp));
+  const { xp, streak } = useUserStore();
+  const [selectedPeriod, setSelectedPeriod] = useState(0);
+
+  const fetcher = useCallback(
+    () => statsService.getStats(PERIOD_MAP[PERIODS[selectedPeriod]]),
+    [selectedPeriod],
+  );
+  const { data, loading, refetch } = useApi<StatsData>(fetcher);
+
+  const handlePeriodChange = (idx: number) => {
+    setSelectedPeriod(idx);
+    // refetch will happen via useApi since fetcher changes
+    setTimeout(refetch, 0);
+  };
+
+  const weeklyXp = data?.weeklyXp ?? [];
+  const maxXp = Math.max(...weeklyXp.map(d => d.xp), 1);
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.title}>통계</Text>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
+        <BackButton />
+        <Text style={styles.headerTitle}>학습 통계</Text>
+        <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Period Selector */}
-        <View style={styles.periodRow}>
-          {PERIODS.map((p, idx) => (
-            <TouchableOpacity
-              key={p}
-              style={[styles.periodTab, activePeriod === idx && styles.periodTabActive]}
-              onPress={() => setActivePeriod(idx)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.periodText, activePeriod === idx && styles.periodTextActive]}>{p}</Text>
-            </TouchableOpacity>
-          ))}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary.main} />
         </View>
-
-        {/* XP Chart */}
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.chartCard}>
-          <Text style={styles.chartTitle}>주간 XP</Text>
-          <View style={styles.chart}>
-            {WEEK_DATA.map((d, idx) => (
-              <View key={d.day} style={styles.barWrapper}>
-                <View style={[styles.bar, { height: (d.xp / maxXp) * 100, backgroundColor: idx === new Date().getDay() - 1 ? '#58CC02' : '#E5E5E5' }]} />
-                <Text style={styles.barLabel}>{d.day}</Text>
-              </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Period selector */}
+          <View style={styles.periodRow}>
+            {PERIODS.map((p, idx) => (
+              <TouchableOpacity
+                key={p}
+                style={[styles.periodTab, selectedPeriod === idx && styles.periodTabActive]}
+                onPress={() => handlePeriodChange(idx)}
+              >
+                <Text style={[styles.periodText, selectedPeriod === idx && styles.periodTextActive]}>{p}</Text>
+              </TouchableOpacity>
             ))}
           </View>
-        </Animated.View>
 
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={[styles.statCard, { backgroundColor: '#F0FFF0' }]}>
-            <Text style={styles.statEmoji}>⭐</Text>
-            <Text style={[styles.statValue, { color: '#58CC02' }]}>{xp}</Text>
-            <Text style={styles.statLabel}>총 XP</Text>
+          {/* XP Chart */}
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.chartCard}>
+            <Text style={styles.chartTitle}>XP 그래프</Text>
+            <View style={styles.chartArea}>
+              {weeklyXp.map((d, idx) => (
+                <View key={idx} style={styles.barCol}>
+                  <View style={[styles.bar, { height: Math.max((d.xp / maxXp) * 100, 4), backgroundColor: d.xp > 0 ? colors.primary.main : colors.border.light }]} />
+                  <Text style={styles.barLabel}>{d.day}</Text>
+                </View>
+              ))}
+              {weeklyXp.length === 0 && (
+                <Text style={styles.emptyChart}>데이터가 없습니다</Text>
+              )}
+            </View>
           </Animated.View>
-          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={[styles.statCard, { backgroundColor: '#FFF8E1' }]}>
-            <Text style={styles.statEmoji}>🔥</Text>
-            <Text style={[styles.statValue, { color: '#FF9600' }]}>{streak}일</Text>
-            <Text style={styles.statLabel}>연속 스트릭</Text>
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(300).duration(400)} style={[styles.statCard, { backgroundColor: '#EDF7FF' }]}>
-            <Text style={styles.statEmoji}>⏱️</Text>
-            <Text style={[styles.statValue, { color: '#1CB0F6' }]}>42분</Text>
-            <Text style={styles.statLabel}>이번 주 학습</Text>
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={[styles.statCard, { backgroundColor: '#F3E8FF' }]}>
-            <Text style={styles.statEmoji}>🎯</Text>
-            <Text style={[styles.statValue, { color: '#CE82FF' }]}>78%</Text>
-            <Text style={styles.statLabel}>정답률</Text>
-          </Animated.View>
-        </View>
 
-        {/* Quick Links */}
-        <View style={styles.links}>
-          <TouchableOpacity style={styles.linkCard} onPress={() => navigation.navigate('StreakDetail')} activeOpacity={0.7}>
-            <Text style={styles.linkEmoji}>🔥</Text>
-            <Text style={styles.linkTitle}>스트릭 상세</Text>
-            <Feather name="chevron-right" size={18} color="#AFAFAF" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.linkCard} onPress={() => navigation.navigate('Badges')} activeOpacity={0.7}>
-            <Text style={styles.linkEmoji}>🏅</Text>
-            <Text style={styles.linkTitle}>뱃지 모음</Text>
-            <Feather name="chevron-right" size={18} color="#AFAFAF" />
-          </TouchableOpacity>
-        </View>
+          {/* Summary Stats */}
+          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.summaryGrid}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryEmoji}>⏱️</Text>
+              <Text style={styles.summaryValue}>{data?.totalStudyMinutes ?? 0}분</Text>
+              <Text style={styles.summaryLabel}>학습 시간</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryEmoji}>🎯</Text>
+              <Text style={styles.summaryValue}>{data?.accuracy ?? 0}%</Text>
+              <Text style={styles.summaryLabel}>정답률</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryEmoji}>📚</Text>
+              <Text style={styles.summaryValue}>{data?.lessonsCompleted ?? 0}</Text>
+              <Text style={styles.summaryLabel}>레슨 완료</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryEmoji}>📝</Text>
+              <Text style={styles.summaryValue}>{data?.wordsLearned ?? 0}</Text>
+              <Text style={styles.summaryLabel}>단어 학습</Text>
+            </View>
+          </Animated.View>
 
-        <View style={{ height: 32 }} />
-      </ScrollView>
+          {/* Quick Links */}
+          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('StreakDetail')}>
+              <Text style={{ fontSize: 20 }}>🔥</Text>
+              <Text style={styles.linkText}>스트릭 상세</Text>
+              <Text style={styles.linkValue}>{streak}일</Text>
+              <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Badges')}>
+              <Text style={{ fontSize: 20 }}>🏅</Text>
+              <Text style={styles.linkText}>뱃지</Text>
+              <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12 },
-  title: { fontSize: 28, fontWeight: '800', color: '#4B4B4B' },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
-  periodRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  periodTab: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#F7F7F7' },
-  periodTabActive: { backgroundColor: '#58CC02' },
-  periodText: { fontSize: 14, fontWeight: '600', color: '#AFAFAF' },
-  periodTextActive: { color: '#FFFFFF' },
-  chartCard: { backgroundColor: '#F7F7F7', borderRadius: 20, padding: 20, marginBottom: 20 },
-  chartTitle: { fontSize: 16, fontWeight: '700', color: '#4B4B4B', marginBottom: 16 },
-  chart: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 120 },
-  barWrapper: { alignItems: 'center', gap: 6, flex: 1 },
-  bar: { width: 20, borderRadius: 10, minHeight: 8 },
-  barLabel: { fontSize: 12, color: '#AFAFAF', fontWeight: '500' },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
-  statCard: { width: '47%', borderRadius: 16, padding: 16, alignItems: 'center', gap: 4 },
-  statEmoji: { fontSize: 24 },
-  statValue: { fontSize: 22, fontWeight: '800' },
-  statLabel: { fontSize: 12, color: '#AFAFAF' },
-  links: { gap: 8 },
-  linkCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F7F7', borderRadius: 12, padding: 14, gap: 10 },
-  linkEmoji: { fontSize: 20 },
-  linkTitle: { fontSize: 15, fontWeight: '600', color: '#4B4B4B', flex: 1 },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 16 },
+  headerTitle: { ...typography.h3, color: colors.text.primary },
+  content: { paddingHorizontal: 20, paddingBottom: 40 },
+  periodRow: { flexDirection: 'row', backgroundColor: colors.background.secondary, borderRadius: 12, padding: 4, marginBottom: 20 },
+  periodTab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
+  periodTabActive: { backgroundColor: colors.primary.main },
+  periodText: { ...typography.caption, color: colors.text.secondary },
+  periodTextActive: { color: '#FFF', fontWeight: '700' },
+  chartCard: { backgroundColor: colors.background.secondary, borderRadius: 20, padding: 20, marginBottom: 20 },
+  chartTitle: { ...typography.h4, color: colors.text.primary, marginBottom: 16 },
+  chartArea: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 120 },
+  barCol: { alignItems: 'center', gap: 6 },
+  bar: { width: 28, borderRadius: 6 },
+  barLabel: { ...typography.small, color: colors.text.tertiary },
+  emptyChart: { ...typography.body, color: colors.text.tertiary },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
+  summaryItem: { width: '47%', backgroundColor: colors.background.secondary, borderRadius: 16, padding: 16, alignItems: 'center', gap: 4 },
+  summaryEmoji: { fontSize: 20 },
+  summaryValue: { ...typography.h3, color: colors.text.primary },
+  summaryLabel: { ...typography.small, color: colors.text.secondary },
+  linkRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background.secondary, borderRadius: 16, padding: 16, marginBottom: 12, gap: 12 },
+  linkText: { flex: 1, ...typography.body, color: colors.text.primary },
+  linkValue: { ...typography.body, color: colors.text.secondary, marginRight: 4 },
 });

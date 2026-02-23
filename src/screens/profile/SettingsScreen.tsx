@@ -1,20 +1,63 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Switch, ScrollView, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
-import { useAuthStore } from '../../stores/authStore';
 import BackButton from '../../components/BackButton';
+import { userService } from '../../services/user.service';
+import { useAuthStore } from '../../stores/authStore';
+import { colors } from '../../theme/colors';
+import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 export default function SettingsScreen({ navigation }: Props) {
-  const [notifications, setNotifications] = useState(true);
-  const [soundEffects, setSoundEffects] = useState(true);
-  const [vibration, setVibration] = useState(true);
-  const logout = useAuthStore((s) => s.logout);
   const insets = useSafeAreaInsets();
+  const { logout } = useAuthStore();
+
+  const [notifications, setNotifications] = useState(true);
+  const [sound, setSound] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Load settings from API
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await userService.getMe();
+        if (res.data?.success) {
+          const s = (res.data.data as any)?.user?.settings;
+          if (s) {
+            setNotifications(s.notifications ?? true);
+            setSound(s.sound ?? true);
+            setDarkMode(s.darkMode ?? false);
+          }
+        }
+      } catch { /* use defaults */ }
+    };
+    load();
+  }, []);
+
+  const updateSetting = async (key: string, value: boolean) => {
+    try {
+      await userService.updateSettings({ [key]: value } as any);
+    } catch { /* local state is already updated */ }
+  };
+
+  const toggleNotifications = (v: boolean) => {
+    setNotifications(v);
+    updateSetting('notifications', v);
+  };
+
+  const toggleSound = (v: boolean) => {
+    setSound(v);
+    updateSetting('sound', v);
+  };
+
+  const toggleDarkMode = (v: boolean) => {
+    setDarkMode(v);
+    updateSetting('darkMode', v);
+  };
 
   const handleLogout = () => {
     Alert.alert('로그아웃', '정말 로그아웃 하시겠습니까?', [
@@ -22,104 +65,94 @@ export default function SettingsScreen({ navigation }: Props) {
       {
         text: '로그아웃',
         style: 'destructive',
-        onPress: async () => {
-          await logout();
-          // Navigation resets automatically via RootNavigator isAuthenticated check
-        },
+        onPress: () => logout(),
       },
     ]);
   };
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
         <BackButton />
         <Text style={styles.headerTitle}>설정</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>학습 설정</Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Notifications */}
+        <Text style={styles.sectionTitle}>알림</Text>
         <View style={styles.section}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Feather name="bell" size={18} color="#4B4B4B" />
-              <Text style={styles.settingLabel}>학습 알림</Text>
-            </View>
-            <Switch value={notifications} onValueChange={setNotifications} trackColor={{ false: '#E5E5E5', true: '#B8E986' }} thumbColor={notifications ? '#58CC02' : '#f4f3f4'} />
+          <View style={styles.row}>
+            <Feather name="bell" size={20} color={colors.text.primary} />
+            <Text style={styles.rowLabel}>푸시 알림</Text>
+            <Switch
+              value={notifications}
+              onValueChange={toggleNotifications}
+              trackColor={{ false: colors.border.light, true: colors.primary.main }}
+            />
           </View>
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Feather name="volume-2" size={18} color="#4B4B4B" />
-              <Text style={styles.settingLabel}>효과음</Text>
-            </View>
-            <Switch value={soundEffects} onValueChange={setSoundEffects} trackColor={{ false: '#E5E5E5', true: '#B8E986' }} thumbColor={soundEffects ? '#58CC02' : '#f4f3f4'} />
-          </View>
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Feather name="smartphone" size={18} color="#4B4B4B" />
-              <Text style={styles.settingLabel}>진동</Text>
-            </View>
-            <Switch value={vibration} onValueChange={setVibration} trackColor={{ false: '#E5E5E5', true: '#B8E986' }} thumbColor={vibration ? '#58CC02' : '#f4f3f4'} />
+          <View style={styles.row}>
+            <Feather name="volume-2" size={20} color={colors.text.primary} />
+            <Text style={styles.rowLabel}>효과음</Text>
+            <Switch
+              value={sound}
+              onValueChange={toggleSound}
+              trackColor={{ false: colors.border.light, true: colors.primary.main }}
+            />
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>앱 정보</Text>
+        {/* Display */}
+        <Text style={styles.sectionTitle}>화면</Text>
         <View style={styles.section}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>앱 버전</Text>
-            <Text style={styles.infoValue}>1.0.0</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>빌드 번호</Text>
-            <Text style={styles.infoValue}>1</Text>
+          <View style={styles.row}>
+            <Feather name="moon" size={20} color={colors.text.primary} />
+            <Text style={styles.rowLabel}>다크 모드</Text>
+            <Switch
+              value={darkMode}
+              onValueChange={toggleDarkMode}
+              trackColor={{ false: colors.border.light, true: colors.primary.main }}
+            />
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>법적 고지</Text>
+        {/* Subscription */}
+        <Text style={styles.sectionTitle}>구독</Text>
         <View style={styles.section}>
-          <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
-            <Text style={styles.linkLabel}>이용약관</Text>
-            <Feather name="chevron-right" size={18} color="#AFAFAF" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
-            <Text style={styles.linkLabel}>개인정보처리방침</Text>
-            <Feather name="chevron-right" size={18} color="#AFAFAF" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
-            <Text style={styles.linkLabel}>오픈소스 라이선스</Text>
-            <Feather name="chevron-right" size={18} color="#AFAFAF" />
+          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Premium')}>
+            <Text style={{ fontSize: 18 }}>👑</Text>
+            <Text style={styles.rowLabel}>프리미엄 구독</Text>
+            <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
           </TouchableOpacity>
         </View>
 
-        {/* 로그아웃 */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
-          <Feather name="log-out" size={18} color="#FF4B4B" />
-          <Text style={styles.logoutText}>로그아웃</Text>
-        </TouchableOpacity>
+        {/* Account */}
+        <Text style={styles.sectionTitle}>계정</Text>
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.row} onPress={handleLogout}>
+            <Feather name="log-out" size={20} color={colors.status.error} />
+            <Text style={[styles.rowLabel, { color: colors.status.error }]}>로그아웃</Text>
+          </TouchableOpacity>
+        </View>
 
-        <View style={{ height: 32 }} />
+        {/* App Info */}
+        <View style={styles.appInfo}>
+          <Text style={styles.appInfoText}>Levo v1.0.0</Text>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#4B4B4B' },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#AFAFAF', marginBottom: 8, marginTop: 16, textTransform: 'uppercase' },
-  section: { backgroundColor: '#F7F7F7', borderRadius: 16, paddingHorizontal: 16, marginBottom: 8 },
-  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: '#E5E5E5' },
-  settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  settingLabel: { fontSize: 15, fontWeight: '500', color: '#4B4B4B' },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: '#E5E5E5' },
-  infoLabel: { fontSize: 15, color: '#4B4B4B' },
-  infoValue: { fontSize: 15, color: '#AFAFAF' },
-  linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: '#E5E5E5' },
-  linkLabel: { fontSize: 15, color: '#4B4B4B' },
-  logoutButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 16, borderRadius: 16, borderWidth: 1, borderColor: '#FFEBEE', marginTop: 24, backgroundColor: '#FFF5F5' },
-  logoutText: { fontSize: 16, fontWeight: '600', color: '#FF4B4B' },
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 16 },
+  headerTitle: { ...typography.h3, color: colors.text.primary },
+  content: { paddingHorizontal: 20, paddingBottom: 40 },
+  sectionTitle: { ...typography.caption, color: colors.text.tertiary, textTransform: 'uppercase', marginBottom: 8, marginTop: 20, letterSpacing: 1 },
+  section: { backgroundColor: colors.background.secondary, borderRadius: 16, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border.light },
+  rowLabel: { flex: 1, ...typography.body, color: colors.text.primary },
+  appInfo: { alignItems: 'center', marginTop: 40 },
+  appInfoText: { ...typography.small, color: colors.text.tertiary },
 });
