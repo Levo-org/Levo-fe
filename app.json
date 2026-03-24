@@ -4,7 +4,6 @@
     "slug": "levo",
     "version": "1.0.0",
     "orientation": "portrait",
-    
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -23,16 +22,24 @@
       "package": "com.levo.app",
       "versionCode": 1
     },
-      "plugins": [
+    "plugins": [
       "expo-secure-store",
       [
         "expo-notifications",
         {
           "color": "#58CC02"
         }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.819799406510-tu06njfk4n3odnio2das0p7sapj9k5qj"
+        }
       ]
     ],
     "extra": {
+      "apiUrl": "https://levo-be.vercel.app/api/v1",
+      "googleWebClientId": "819799406510-tu06njfk4n3odnio2das0p7sapj9k5qj.apps.googleusercontent.com",
       "eas": {
         "projectId": "your-project-id"
       }

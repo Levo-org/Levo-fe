@@ -1,16 +1,19 @@
 import api from './api';
 import type { ApiResponse, User, AuthTokens, LanguageProfile } from '../types';
 
-interface DevLoginUser {
+interface AuthUser {
   _id: string;
   email: string;
   name: string;
+  profileImage?: string;
   activeLanguage: string;
+  isPremium?: boolean;
+  coins?: number;
   isNewUser: boolean;
 }
 
 interface AuthResponse {
-  user: DevLoginUser;
+  user: AuthUser;
   tokens: AuthTokens;
 }
 

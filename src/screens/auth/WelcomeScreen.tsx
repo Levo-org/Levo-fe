@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
 import type { AuthStackParamList } from '../../types';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../stores/authStore';
@@ -17,21 +18,38 @@ export default function WelcomeScreen({ navigation }: Props) {
   const { setAuthenticated } = useAuthStore();
   const insets = useSafeAreaInsets();
 
-  const handleDevLogin = async () => {
+  const handleGoogleLogin = async () => {
     if (loading) return;
+
     setLoading(true);
+
     try {
-      const { data: res } = await authService.devLogin();
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
+
+      const signInResponse = await GoogleSignin.signIn();
+      if (!isSuccessResponse(signInResponse)) {
+        return;
+      }
+
+      const idToken = signInResponse.data.idToken;
+      if (!idToken) {
+        Alert.alert('로그인 실패', 'Google ID 토큰을 가져오지 못했습니다. 다시 시도해주세요.');
+        return;
+      }
+
+      const { data: res } = await authService.loginWithGoogle(idToken);
       if (res.success && res.data) {
         const { user, tokens } = res.data;
-        // Map to our User type (backend returns minimal fields)
-        const mappedUser: any = {
+        const mappedUser = {
           _id: user._id,
           email: user.email,
           name: user.name,
+          profileImage: user.profileImage || '',
           activeLanguage: user.activeLanguage,
-          isPremium: false,
-          coins: 0,
+          isPremium: user.isPremium,
+          coins: user.coins,
           settings: {
             dailyGoalMinutes: 10,
             notificationEnabled: true,
@@ -40,17 +58,32 @@ export default function WelcomeScreen({ navigation }: Props) {
             effectsEnabled: true,
           },
         };
+
         await setAuthenticated(mappedUser, tokens, null);
-        // Navigation happens automatically via isAuthenticated in RootNavigator
       } else {
         Alert.alert('로그인 실패', res.message || '다시 시도해주세요.');
       }
-    } catch (error: any) {
-      console.error('[WelcomeScreen] Dev login failed:', error?.message);
-      Alert.alert('연결 실패', '서버에 연결할 수 없습니다.\n백엔드가 실행 중인지 확인해주세요.');
+    } catch (error: unknown) {
+      if (isErrorWithCode(error)) {
+        if (error.code === statusCodes.IN_PROGRESS) {
+          return;
+        }
+
+        if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          Alert.alert('Google Play 서비스 필요', 'Google Play 서비스를 업데이트한 뒤 다시 시도해주세요.');
+          return;
+        }
+      }
+
+      console.error('[WelcomeScreen] Google login failed:', error);
+      Alert.alert('로그인 실패', 'Google 로그인 중 문제가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAppleLogin = async () => {
+    Alert.alert('준비 중', 'Apple 로그인은 아직 준비 중입니다.');
   };
 
   return (
@@ -71,7 +104,7 @@ export default function WelcomeScreen({ navigation }: Props) {
         </Animated.Text>
 
         <Animated.View entering={FadeInDown.delay(600).duration(500)} style={styles.buttons}>
-          <TouchableOpacity style={styles.googleButton} onPress={handleDevLogin} activeOpacity={0.8} disabled={loading}>
+          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin} activeOpacity={0.8} disabled={loading}>
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
@@ -83,7 +116,7 @@ export default function WelcomeScreen({ navigation }: Props) {
           </TouchableOpacity>
 
           {Platform.OS === 'ios' && (
-            <TouchableOpacity style={styles.appleButton} onPress={handleDevLogin} activeOpacity={0.8} disabled={loading}>
+            <TouchableOpacity style={styles.appleButton} onPress={handleAppleLogin} activeOpacity={0.8} disabled={loading}>
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
@@ -94,8 +127,6 @@ export default function WelcomeScreen({ navigation }: Props) {
               )}
             </TouchableOpacity>
           )}
-
-          <Text style={styles.devNote}>⚠️ 개발 모드: 클릭 시 테스트 계정으로 자동 로그인</Text>
         </Animated.View>
       </View>
     </View>
@@ -177,16 +208,5 @@ const styles = StyleSheet.create({
   appleButtonText: {
     ...typography.button,
     color: '#FFFFFF',
-  },
-  browseText: {
-    ...typography.body,
-    color: colors.text.secondary,
-    marginTop: 8,
-  },
-  devNote: {
-    fontSize: 11,
-    color: colors.text.secondary,
-    marginTop: 4,
-    textAlign: 'center',
   },
 });

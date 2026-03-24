@@ -4,10 +4,14 @@ import { useAuthStore } from '../stores/authStore';
 
 // Expo SDK 52: use Constants.expoConfig.extra or fallback
 const getApiUrl = (): string => {
-  const extra = (Constants.expoConfig as any)?.extra;
+  const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envApiUrl) return envApiUrl;
+
+  const extra = (Constants.expoConfig as { extra?: { apiUrl?: string } } | null)?.extra;
   if (extra?.apiUrl) return extra.apiUrl;
+
   // For iOS simulator, localhost works. For physical device, use LAN IP.
-  return 'http://192.168.45.150:5001/api/v1';
+  return 'https://levo-be.vercel.app/api/v1';
 };
 
 const API_URL = getApiUrl();
@@ -49,13 +53,24 @@ api.interceptors.response.use(
           });
 
           if (data?.success) {
+            const refreshedAccessToken = data.data.tokens?.accessToken || data.data.accessToken;
+            if (!refreshedAccessToken) {
+              throw new Error('No refreshed access token returned');
+            }
+
             const newTokens = {
               ...tokens,
-              accessToken: data.data.accessToken,
+              accessToken: refreshedAccessToken,
             };
+
             const store = useAuthStore.getState();
             await store.setAuthenticated(store.user!, newTokens, store.languageProfile);
-            originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
+
+            if (!originalRequest.headers) {
+              originalRequest.headers = {};
+            }
+            originalRequest.headers.Authorization = `Bearer ${refreshedAccessToken}`;
+
             return api(originalRequest);
           }
         } catch (e) {

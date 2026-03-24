@@ -98,7 +98,7 @@ export interface LanguageProfile {
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
-  expiresIn: number;
+  expiresIn?: number;
 }
 
 export interface Word {
