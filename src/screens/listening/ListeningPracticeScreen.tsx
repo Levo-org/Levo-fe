@@ -1,45 +1,101 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../types';
+import type { RootStackParamList, ListeningPracticeItem } from '../../types';
 import BackButton from '../../components/BackButton';
 import ProgressIndicator from '../../components/ProgressIndicator';
 import QuizOption from '../../components/QuizOption';
 import { listeningService } from '../../services/listening.service';
+import { audioService } from '../../services/audio.service';
 import { useApi } from '../../hooks/useApi';
+import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ListeningPractice'>;
 
-interface ListeningProblem {
-  _id: string;
-  question: string;
-  audioUrl?: string;
-  options: string[];
-  correctIndex?: number;
-}
-
 const LABELS = ['A', 'B', 'C', 'D'];
 
-export default function ListeningPracticeScreen({ navigation }: Props) {
+const hashString = (value: string): number => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+};
+
+export default function ListeningPracticeScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const requestedProblemId = route.params?.problemId;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [serverCorrectIdx, setServerCorrectIdx] = useState<number | null>(null);
+  const activeLanguage = useAuthStore(
+    (state) => state.user?.activeLanguage ?? state.languageProfile?.targetLanguage ?? 'en',
+  );
+  const initializedWithRouteParam = useRef(false);
 
   const fetcher = useCallback(() => listeningService.getProblems(), []);
-  const { data: problems, loading } = useApi<ListeningProblem[]>(fetcher);
+  const { data: problems, loading } = useApi<ListeningPracticeItem[]>(fetcher);
 
   const allProblems = problems ?? [];
   const problem = allProblems[currentIndex];
   const totalProblems = allProblems.length;
+  const displayedOptions = useMemo(() => {
+    if (!problem) return [];
+    return [...problem.options].sort(
+      (a, b) => hashString(`${problem._id}:${a}`) - hashString(`${problem._id}:${b}`),
+    );
+  }, [problem]);
+
+  useEffect(() => {
+    return () => {
+      audioService.stop().catch(() => undefined);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (initializedWithRouteParam.current) return;
+    if (!requestedProblemId) {
+      initializedWithRouteParam.current = true;
+      return;
+    }
+    if (allProblems.length === 0) return;
+
+    const targetIndex = allProblems.findIndex((item) => item._id === requestedProblemId);
+    if (targetIndex >= 0) {
+      setCurrentIndex(targetIndex);
+    }
+    initializedWithRouteParam.current = true;
+  }, [allProblems, requestedProblemId]);
+
+  const handleTogglePlay = useCallback(async () => {
+    if (!problem) return;
+
+    if (isPlaying) {
+      await audioService.stop();
+      setIsPlaying(false);
+      return;
+    }
+
+    setIsPlaying(true);
+    try {
+      await audioService.speak(problem.ttsText, {
+        language: activeLanguage,
+        onDone: () => setIsPlaying(false),
+        onStopped: () => setIsPlaying(false),
+        onError: () => setIsPlaying(false),
+      });
+    } catch {
+      setIsPlaying(false);
+    }
+  }, [isPlaying, problem]);
 
   const handleSelect = useCallback(async (index: number) => {
     if (answered || !problem) return;
@@ -47,23 +103,24 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
     setAnswered(true);
 
     try {
-      const res = await listeningService.answerProblem(problem._id, problem.options[index]);
+      const selectedOption = displayedOptions[index];
+      if (!selectedOption) return;
+
+      const res = await listeningService.answerProblem(problem._id, selectedOption);
       const result = res.data?.data;
       if (result) {
         if (result.correct) setCorrectCount((c) => c + 1);
-        // Find correct index from correctAnswer string
-        const cIdx = problem.options.findIndex((o) => o === result.correctAnswer);
+        const cIdx = displayedOptions.findIndex((o) => o === result.correctAnswer);
         setServerCorrectIdx(cIdx >= 0 ? cIdx : null);
       }
     } catch {
-      if (problem.correctIndex !== undefined && index === problem.correctIndex) {
-        setCorrectCount((c) => c + 1);
-      }
+      setServerCorrectIdx(null);
     }
-  }, [answered, problem]);
+  }, [answered, displayedOptions, problem]);
 
   const handleNext = () => {
     if (currentIndex < totalProblems - 1) {
+      audioService.stop().catch(() => undefined);
       setCurrentIndex((i) => i + 1);
       setSelectedAnswer(null);
       setAnswered(false);
@@ -76,8 +133,8 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
 
   const getOptionState = (index: number) => {
     if (!answered) return 'default';
-    const correctIdx = serverCorrectIdx ?? problem?.correctIndex;
-    if (index === correctIdx) return 'correct';
+    if (serverCorrectIdx !== null && index === serverCorrectIdx) return 'correct';
+    if (serverCorrectIdx === null && index === selectedAnswer) return 'selected';
     if (index === selectedAnswer) return 'wrong';
     return 'default';
   };
@@ -117,7 +174,7 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
         <Animated.View entering={FadeInDown.duration(400)} style={styles.audioCard}>
           <TouchableOpacity
             style={[styles.playButton, isPlaying && styles.playButtonActive]}
-            onPress={() => setIsPlaying(!isPlaying)}
+            onPress={handleTogglePlay}
             activeOpacity={0.8}
           >
             <Feather name={isPlaying ? 'pause' : 'play'} size={32} color="#FFFFFF" />
@@ -133,15 +190,15 @@ export default function ListeningPracticeScreen({ navigation }: Props) {
         <Text style={styles.question}>{problem.question}</Text>
 
         <View style={styles.options}>
-          {problem.options.map((option, idx) => (
-            <QuizOption
-              key={idx}
-              label={LABELS[idx]}
-              text={option}
-              state={getOptionState(idx) as any}
-              onPress={() => handleSelect(idx)}
-              disabled={answered}
-            />
+          {displayedOptions.map((option, idx) => (
+                <QuizOption
+                  key={idx}
+                  label={LABELS[idx]}
+                  text={option}
+                  state={getOptionState(idx)}
+                  onPress={() => handleSelect(idx)}
+                  disabled={answered}
+                />
           ))}
         </View>
       </View>

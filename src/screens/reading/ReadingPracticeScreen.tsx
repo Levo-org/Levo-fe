@@ -1,10 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../types';
+import type { RootStackParamList, ReadingPracticePassage } from '../../types';
 import BackButton from '../../components/BackButton';
 import QuizOption from '../../components/QuizOption';
 import { readingService } from '../../services/reading.service';
@@ -14,33 +14,41 @@ import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReadingPractice'>;
 
-interface ReadingPassage {
-  _id: string;
-  title: string;
-  text: string;
-  translation: string;
-  difficulty: string;
-  questions: { question: string; options: string[]; correctIndex?: number }[];
-}
-
 const LABELS = ['A', 'B', 'C', 'D'];
 
-export default function ReadingPracticeScreen({ navigation }: Props) {
+export default function ReadingPracticeScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const requestedPassageId = route.params?.passageId;
   const [showTranslation, setShowTranslation] = useState(false);
   const [currentQ, setCurrentQ] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
   const [selectedPassageIdx, setSelectedPassageIdx] = useState(0);
   const [serverCorrectIdx, setServerCorrectIdx] = useState<number | null>(null);
+  const initializedWithRouteParam = useRef(false);
 
   const fetcher = useCallback(() => readingService.getPassages(), []);
-  const { data: passages, loading } = useApi<ReadingPassage[]>(fetcher);
+  const { data: passages, loading } = useApi<ReadingPracticePassage[]>(fetcher);
 
   const allPassages = passages ?? [];
   const passage = allPassages[selectedPassageIdx];
   const questions = passage?.questions ?? [];
   const question = questions[currentQ];
+
+  useEffect(() => {
+    if (initializedWithRouteParam.current) return;
+    if (!requestedPassageId) {
+      initializedWithRouteParam.current = true;
+      return;
+    }
+    if (allPassages.length === 0) return;
+
+    const targetIndex = allPassages.findIndex((item) => item._id === requestedPassageId);
+    if (targetIndex >= 0) {
+      setSelectedPassageIdx(targetIndex);
+    }
+    initializedWithRouteParam.current = true;
+  }, [allPassages, requestedPassageId]);
 
   const handleSelect = useCallback(async (index: number) => {
     if (answered || !passage || !question) return;
@@ -51,9 +59,14 @@ export default function ReadingPracticeScreen({ navigation }: Props) {
       const res = await readingService.answerQuiz(passage._id, currentQ, index);
       const result = res.data?.data;
       if (result?.correctAnswer !== undefined) {
-        setServerCorrectIdx(result.correctAnswer);
+        const parsedCorrect = typeof result.correctAnswer === 'number'
+          ? result.correctAnswer
+          : Number.parseInt(result.correctAnswer, 10);
+        setServerCorrectIdx(Number.isNaN(parsedCorrect) ? null : parsedCorrect);
       }
-    } catch { /* fallback to client */ }
+    } catch {
+      setServerCorrectIdx(null);
+    }
   }, [answered, passage, question, currentQ]);
 
   const handleNext = () => {
@@ -134,7 +147,7 @@ export default function ReadingPracticeScreen({ navigation }: Props) {
                   key={idx}
                   label={LABELS[idx]}
                   text={option}
-                  state={getOptionState(idx) as any}
+                  state={getOptionState(idx)}
                   onPress={() => handleSelect(idx)}
                   disabled={answered}
                 />

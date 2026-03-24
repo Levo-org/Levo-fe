@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../types';
+import type { RootStackParamList, ConversationDetail } from '../../types';
 import BackButton from '../../components/BackButton';
 import { conversationService } from '../../services/conversation.service';
 import { useApi } from '../../hooks/useApi';
@@ -12,21 +12,6 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConversationDialog'>;
-
-interface DialogLine {
-  speaker: string;
-  text: string;
-  translation: string;
-  isUser: boolean;
-}
-
-interface ConversationDetail {
-  _id: string;
-  emoji: string;
-  title: string;
-  description: string;
-  dialog: DialogLine[];
-}
 
 export default function ConversationDialogScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
@@ -44,7 +29,7 @@ export default function ConversationDialogScreen({ navigation, route }: Props) {
   }
 
   const detail = data;
-  const dialog = detail?.dialog ?? [];
+  const dialog = detail?.dialogs?.length ? detail.dialogs : (detail?.dialog ?? []);
 
   return (
     <View style={styles.container}>

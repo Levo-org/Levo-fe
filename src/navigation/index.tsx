@@ -36,6 +36,7 @@ import CoinShopScreen from '../screens/shop/CoinShopScreen';
 import CoinShopUseScreen from '../screens/shop/CoinShopUseScreen';
 import PremiumScreen from '../screens/shop/PremiumScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
+import SourcesCreditsScreen from '../screens/profile/SourcesCreditsScreen';
 import HeartsDemoScreen from '../screens/profile/HeartsDemoScreen';
 
 const Stack: any = createNativeStackNavigator<RootStackParamList>();
@@ -89,6 +90,7 @@ export function RootNavigator() {
             <Stack.Screen name="CoinShopUse" component={CoinShopUseScreen} />
             <Stack.Screen name="Premium" component={PremiumScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="SourcesCredits" component={SourcesCreditsScreen} />
             <Stack.Screen name="HeartsDemo" component={HeartsDemoScreen} />
           </>
         )}

@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../types';
+import type { RootStackParamList, ConversationDetail } from '../../types';
 import BackButton from '../../components/BackButton';
 import { conversationService } from '../../services/conversation.service';
 import { useApi } from '../../hooks/useApi';
@@ -13,41 +13,24 @@ import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConversationPractice'>;
 
-interface PracticeData {
-  situation: string;
-  dialogs: {
-    speaker: string;
-    text: string;
-    translation: string;
-  }[];
-}
-
 export default function ConversationPracticeScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { situationId } = route.params;
 
   const fetcher = useCallback(() => conversationService.getDetail(situationId), [situationId]);
-  const { data, loading } = useApi<PracticeData>(fetcher);
+  const { data, loading } = useApi<ConversationDetail>(fetcher);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [scores, setScores] = useState<number[]>([]);
   const [finished, setFinished] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [practicing, setPracticing] = useState(false);
 
   const dialogs = data?.dialogs ?? [];
   const current = dialogs[currentIndex];
 
   const handlePractice = async () => {
-    // Simulate pronunciation score (in real app, would use speech recognition)
-    const score = Math.floor(Math.random() * 30) + 70; // 70-100
-
-    setSubmitting(true);
-    try {
-      await conversationService.submitPractice(situationId, currentIndex, score);
-    } catch { /* continue */ }
-    setSubmitting(false);
-
-    setScores(prev => [...prev, score]);
+    setPracticing(true);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    setPracticing(false);
 
     if (currentIndex < dialogs.length - 1) {
       setCurrentIndex(i => i + 1);
@@ -55,10 +38,6 @@ export default function ConversationPracticeScreen({ navigation, route }: Props)
       setFinished(true);
     }
   };
-
-  const avgScore = scores.length > 0
-    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-    : 0;
 
   if (loading) {
     return (
@@ -82,22 +61,10 @@ export default function ConversationPracticeScreen({ navigation, route }: Props)
 
   if (finished) {
     return (
-      <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
+      <View style={[styles.container, styles.center, { paddingTop: insets.top }]}> 
         <Text style={{ fontSize: 60, marginBottom: 16 }}>🎉</Text>
         <Text style={styles.finishTitle}>연습 완료!</Text>
-        <Text style={styles.finishSubtitle}>평균 점수: {avgScore}점</Text>
-
-        <View style={styles.scoreBreakdown}>
-          {scores.map((s, idx) => (
-            <View key={idx} style={styles.scoreRow}>
-              <Text style={styles.scoreIdx}>#{idx + 1}</Text>
-              <View style={styles.scoreBar}>
-                <View style={[styles.scoreFill, { width: `${s}%` }]} />
-              </View>
-              <Text style={styles.scoreVal}>{s}점</Text>
-            </View>
-          ))}
-        </View>
+        <Text style={styles.finishSubtitle}>모든 문장을 따라 말하며 회화 흐름을 익혔어요.</Text>
 
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backBtnText}>돌아가기</Text>
@@ -122,31 +89,24 @@ export default function ConversationPracticeScreen({ navigation, route }: Props)
           <Text style={styles.translation}>{current.translation}</Text>
         </Animated.View>
 
-        {/* Previous scores */}
-        {scores.length > 0 && (
-          <View style={styles.prevScores}>
-            <Text style={styles.prevTitle}>이전 점수</Text>
-            <View style={styles.prevRow}>
-              {scores.map((s, idx) => (
-                <View key={idx} style={styles.prevBadge}>
-                  <Text style={styles.prevBadgeText}>{s}점</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+        <View style={styles.practiceTipCard}>
+          <Text style={styles.practiceTipTitle}>연습 팁</Text>
+          <Text style={styles.practiceTipText}>
+            원문을 소리 내어 따라 읽고, 번역을 보며 표현과 어순을 함께 익혀보세요.
+          </Text>
+        </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           style={styles.practiceBtn}
           onPress={handlePractice}
-          disabled={submitting}
+          disabled={practicing}
           activeOpacity={0.8}
         >
           <Feather name="mic" size={22} color="#FFF" />
           <Text style={styles.practiceBtnText}>
-            {submitting ? '평가 중...' : '따라 말하기'}
+            {practicing ? '연습 중...' : '따라 말하기'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -166,11 +126,15 @@ const styles = StyleSheet.create({
   dialogText: { ...typography.h2, color: colors.text.primary, lineHeight: 32, marginBottom: 16 },
   divider: { height: 1, backgroundColor: colors.border.light, marginBottom: 12 },
   translation: { ...typography.body, color: colors.text.secondary },
-  prevScores: { marginTop: 8 },
-  prevTitle: { ...typography.caption, color: colors.text.tertiary, marginBottom: 8 },
-  prevRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  prevBadge: { backgroundColor: '#F0FFF4', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  prevBadgeText: { ...typography.small, color: '#16A34A', fontWeight: '600' },
+  practiceTipCard: {
+    backgroundColor: '#F8FBFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DCEBFF',
+    padding: 16,
+  },
+  practiceTipTitle: { ...typography.body, color: colors.accent.blue, fontWeight: '700', marginBottom: 6 },
+  practiceTipText: { ...typography.small, color: colors.text.secondary, lineHeight: 20 },
   footer: { paddingHorizontal: 24, paddingTop: 12 },
   practiceBtn: { flexDirection: 'row', backgroundColor: colors.primary.main, borderRadius: 16, paddingVertical: 16, justifyContent: 'center', alignItems: 'center', gap: 8 },
   practiceBtnText: { ...typography.button, color: '#FFF', fontSize: 18 },
@@ -179,10 +143,4 @@ const styles = StyleSheet.create({
   backBtnText: { ...typography.button, color: '#FFF' },
   finishTitle: { ...typography.h1, color: colors.text.primary, marginBottom: 8 },
   finishSubtitle: { ...typography.body, color: colors.text.secondary, marginBottom: 24 },
-  scoreBreakdown: { width: '100%', gap: 8, marginBottom: 24 },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  scoreIdx: { ...typography.small, color: colors.text.tertiary, width: 24 },
-  scoreBar: { flex: 1, height: 8, backgroundColor: colors.border.light, borderRadius: 4, overflow: 'hidden' },
-  scoreFill: { height: '100%', backgroundColor: colors.primary.main, borderRadius: 4 },
-  scoreVal: { ...typography.small, color: colors.text.secondary, width: 36 },
 });

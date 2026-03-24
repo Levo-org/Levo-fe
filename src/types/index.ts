@@ -29,11 +29,11 @@ export type RootStackParamList = {
   GrammarQuiz: Record<string, any>;
   // Conversation
   Conversation: Record<string, any> | undefined;
-  ConversationDialog: Record<string, any>;
-  ConversationPractice: Record<string, any>;
+  ConversationDialog: { situationId: string };
+  ConversationPractice: { situationId: string };
   // Listening & Reading
-  ListeningPractice: Record<string, any> | undefined;
-  ReadingPractice: Record<string, any> | undefined;
+  ListeningPractice: { problemId?: string } | undefined;
+  ReadingPractice: { passageId?: string } | undefined;
   // Lesson
   LessonMap: Record<string, any> | undefined;
   LessonStart: Record<string, any>;
@@ -58,6 +58,7 @@ export type RootStackParamList = {
   CoinShopUse: Record<string, any> | undefined;
   Premium: Record<string, any> | undefined;
   Settings: Record<string, any> | undefined;
+  SourcesCredits: undefined;
   HeartsDemo: Record<string, any> | undefined;
 };
 
@@ -143,6 +144,48 @@ export interface ConversationSituation {
   level: string;
   completed: boolean;
   locked: boolean;
+}
+
+export interface ReadingPracticeQuestion {
+  question: string;
+  options: string[];
+  correctIndex?: number;
+}
+
+export interface ReadingPracticePassage {
+  _id: string;
+  title: string;
+  text: string;
+  translation: string;
+  difficulty: string;
+  questions: ReadingPracticeQuestion[];
+}
+
+export interface ListeningPracticeItem {
+  _id: string;
+  question: string;
+  options: string[];
+  ttsText: string;
+  difficulty: string;
+  audioUrl: null;
+}
+
+export interface ConversationDialogLine {
+  speaker: string;
+  text: string;
+  translation: string;
+  isUserRole: boolean;
+  isUser: boolean;
+}
+
+export interface ConversationDetail {
+  _id: string;
+  emoji: string;
+  title: string;
+  level?: string;
+  description: string;
+  dialogs: ConversationDialogLine[];
+  dialog: ConversationDialogLine[];
 }
 
 export interface LessonUnit {

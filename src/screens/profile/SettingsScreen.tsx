@@ -18,7 +18,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
   const [notifications, setNotifications] = useState(true);
   const [sound, setSound] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
+  const [effects, setEffects] = useState(true);
 
   // Load settings from API
   useEffect(() => {
@@ -28,9 +28,9 @@ export default function SettingsScreen({ navigation }: Props) {
         if (res.data?.success) {
           const s = (res.data.data as any)?.user?.settings;
           if (s) {
-            setNotifications(s.notifications ?? true);
-            setSound(s.sound ?? true);
-            setDarkMode(s.darkMode ?? false);
+            setNotifications(s.notificationEnabled ?? true);
+            setSound(s.soundEnabled ?? true);
+            setEffects(s.effectsEnabled ?? true);
           }
         }
       } catch { /* use defaults */ }
@@ -46,17 +46,17 @@ export default function SettingsScreen({ navigation }: Props) {
 
   const toggleNotifications = (v: boolean) => {
     setNotifications(v);
-    updateSetting('notifications', v);
+    updateSetting('notificationEnabled', v);
   };
 
   const toggleSound = (v: boolean) => {
     setSound(v);
-    updateSetting('sound', v);
+    updateSetting('soundEnabled', v);
   };
 
-  const toggleDarkMode = (v: boolean) => {
-    setDarkMode(v);
-    updateSetting('darkMode', v);
+  const toggleEffects = (v: boolean) => {
+    setEffects(v);
+    updateSetting('effectsEnabled', v);
   };
 
   const handleLogout = () => {
@@ -106,11 +106,11 @@ export default function SettingsScreen({ navigation }: Props) {
         <Text style={styles.sectionTitle}>화면</Text>
         <View style={styles.section}>
           <View style={styles.row}>
-            <Feather name="moon" size={20} color={colors.text.primary} />
-            <Text style={styles.rowLabel}>다크 모드</Text>
+            <Feather name="zap" size={20} color={colors.text.primary} />
+            <Text style={styles.rowLabel}>효과 애니메이션</Text>
             <Switch
-              value={darkMode}
-              onValueChange={toggleDarkMode}
+              value={effects}
+              onValueChange={toggleEffects}
               trackColor={{ false: colors.border.light, true: colors.primary.main }}
             />
           </View>
@@ -122,6 +122,15 @@ export default function SettingsScreen({ navigation }: Props) {
           <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Premium')}>
             <Text style={{ fontSize: 18 }}>👑</Text>
             <Text style={styles.rowLabel}>프리미엄 구독</Text>
+            <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionTitle}>출처</Text>
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('SourcesCredits')}>
+            <Feather name="book-open" size={20} color={colors.text.primary} />
+            <Text style={styles.rowLabel}>출처 및 크레딧</Text>
             <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
           </TouchableOpacity>
         </View>

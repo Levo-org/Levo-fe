@@ -1,13 +1,41 @@
 import api from './api';
-import type { ApiResponse } from '../types';
+import type { ApiResponse, ReadingPracticePassage } from '../types';
+
+const PAGE_SIZE = 100;
+
+const fetchAllPassages = async (): Promise<ApiResponse<ReadingPracticePassage[]>> => {
+  const items: ReadingPracticePassage[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages) {
+    const response = await api.get<ApiResponse<ReadingPracticePassage[]>>('/reading', {
+      params: { page, limit: PAGE_SIZE },
+    });
+
+    if (!response.data.success) {
+      return response.data;
+    }
+
+    items.push(...response.data.data);
+    totalPages = response.data.pagination?.totalPages ?? 1;
+    page += 1;
+  }
+
+  return {
+    success: true,
+    data: items,
+  };
+};
 
 export const readingService = {
-  getPassages: () =>
-    api.get<ApiResponse<any>>('/reading'),
+  getPassages: async () => ({
+    data: await fetchAllPassages(),
+  }),
 
   getDetail: (id: string) =>
-    api.get<ApiResponse<any>>(`/reading/${id}`),
+    api.get<ApiResponse<ReadingPracticePassage>>(`/reading/${id}`),
 
   answerQuiz: (id: string, quizIndex: number, selectedAnswer: number) =>
-    api.post<ApiResponse<any>>(`/reading/${id}/quiz/answer`, { quizIndex, selectedAnswer }),
+    api.post<ApiResponse<{ correct: boolean; correctAnswer: number | string; explanation?: string }>>(`/reading/${id}/quiz/answer`, { quizIndex, selectedAnswer }),
 };
