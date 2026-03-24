@@ -12,7 +12,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.levo.app",
+      "bundleIdentifier": "org.levo.app",
       "buildNumber": "1"
     },
     "android": {
@@ -33,13 +33,14 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.819799406510-tu06njfk4n3odnio2das0p7sapj9k5qj"
+          "iosUrlScheme": "com.googleusercontent.apps.819799406510-kv81hdj1et52hqh0gbroqcgeisnn5q90"
         }
       ]
     ],
     "extra": {
       "apiUrl": "https://levo-be.vercel.app/api/v1",
       "googleWebClientId": "819799406510-tu06njfk4n3odnio2das0p7sapj9k5qj.apps.googleusercontent.com",
+      "googleIosClientId": "819799406510-kv81hdj1et52hqh0gbroqcgeisnn5q90.apps.googleusercontent.com",
       "eas": {
         "projectId": "your-project-id"
       }
