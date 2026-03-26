@@ -13,6 +13,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.levo.app",
+      "appleTeamId": "6RZ3FF956G",
       "usesAppleSignIn": true,
       "buildNumber": "1"
     },
