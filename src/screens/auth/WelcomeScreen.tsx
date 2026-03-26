@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ActivityIndicator, Alert } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
-import type { AuthStackParamList } from '../../types';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import type { AuthStackParamList, User } from '../../types';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
@@ -13,10 +13,35 @@ import { typography } from '../../theme/typography';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 
-export default function WelcomeScreen({ navigation }: Props) {
+export default function WelcomeScreen(_props: Props) {
   const [loading, setLoading] = useState(false);
   const { setAuthenticated } = useAuthStore();
   const insets = useSafeAreaInsets();
+
+  const mapAuthUserToUser = (user: {
+    _id: string;
+    email: string;
+    name: string;
+    profileImage?: string;
+    activeLanguage: string;
+    isPremium?: boolean;
+    coins?: number;
+  }): User => ({
+    _id: user._id,
+    email: user.email,
+    name: user.name,
+    profileImage: user.profileImage || '',
+    activeLanguage: user.activeLanguage,
+    isPremium: user.isPremium ?? false,
+    coins: user.coins ?? 0,
+    settings: {
+      dailyGoalMinutes: 10,
+      notificationEnabled: true,
+      notificationHour: 9,
+      soundEnabled: true,
+      effectsEnabled: true,
+    },
+  });
 
   const handleGoogleLogin = async () => {
     if (loading) return;
@@ -42,24 +67,7 @@ export default function WelcomeScreen({ navigation }: Props) {
       const { data: res } = await authService.loginWithGoogle(idToken);
       if (res.success && res.data) {
         const { user, tokens } = res.data;
-        const mappedUser = {
-          _id: user._id,
-          email: user.email,
-          name: user.name,
-          profileImage: user.profileImage || '',
-          activeLanguage: user.activeLanguage,
-          isPremium: user.isPremium,
-          coins: user.coins,
-          settings: {
-            dailyGoalMinutes: 10,
-            notificationEnabled: true,
-            notificationHour: 9,
-            soundEnabled: true,
-            effectsEnabled: true,
-          },
-        };
-
-        await setAuthenticated(mappedUser, tokens, null);
+        await setAuthenticated(mapAuthUserToUser(user), tokens, null);
       } else {
         Alert.alert('로그인 실패', res.message || '다시 시도해주세요.');
       }
@@ -83,7 +91,52 @@ export default function WelcomeScreen({ navigation }: Props) {
   };
 
   const handleAppleLogin = async () => {
-    Alert.alert('준비 중', 'Apple 로그인은 아직 준비 중입니다.');
+    if (loading || Platform.OS !== 'ios') return;
+
+    setLoading(true);
+
+    try {
+      const isAppleAuthAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAppleAuthAvailable) {
+        Alert.alert('지원되지 않음', '현재 기기에서는 Apple 로그인을 사용할 수 없습니다.');
+        return;
+      }
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        Alert.alert('로그인 실패', 'Apple ID 토큰을 가져오지 못했습니다. 다시 시도해주세요.');
+        return;
+      }
+
+      const givenName = credential.fullName?.givenName?.trim();
+      const familyName = credential.fullName?.familyName?.trim();
+      const fullName = [givenName, familyName].filter(Boolean).join(' ').trim();
+
+      const { data: res } = await authService.loginWithApple(credential.identityToken, fullName || undefined);
+      if (res.success && res.data) {
+        const { user, tokens } = res.data;
+        await setAuthenticated(mapAuthUserToUser(user), tokens, null);
+      } else {
+        Alert.alert('로그인 실패', res.message || '다시 시도해주세요.');
+      }
+    } catch (error: unknown) {
+      const errorCode =
+        typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: unknown }).code : undefined;
+      if (errorCode === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+
+      console.error('[WelcomeScreen] Apple login failed:', error);
+      Alert.alert('로그인 실패', 'Apple 로그인 중 문제가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -116,16 +169,20 @@ export default function WelcomeScreen({ navigation }: Props) {
           </TouchableOpacity>
 
           {Platform.OS === 'ios' && (
-            <TouchableOpacity style={styles.appleButton} onPress={handleAppleLogin} activeOpacity={0.8} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Feather name="smartphone" size={20} color="#FFFFFF" />
-                  <Text style={styles.appleButtonText}>Apple로 시작하기</Text>
-                </>
+            <View style={styles.appleButtonWrapper}>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={16}
+                style={styles.appleNativeButton}
+                onPress={handleAppleLogin}
+              />
+              {loading && (
+                <View style={styles.appleLoadingOverlay}>
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                </View>
               )}
-            </TouchableOpacity>
+            </View>
           )}
         </Animated.View>
       </View>
@@ -195,18 +252,19 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: '#FFFFFF',
   },
-  appleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1A1A2E',
-    borderRadius: 16,
-    paddingVertical: 16,
+  appleButtonWrapper: {
     width: '100%',
-    gap: 8,
+    position: 'relative',
   },
-  appleButtonText: {
-    ...typography.button,
-    color: '#FFFFFF',
+  appleNativeButton: {
+    width: '100%',
+    height: 54,
+  },
+  appleLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
   },
 });

@@ -13,6 +13,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "org.levo.app",
+      "usesAppleSignIn": true,
       "buildNumber": "1"
     },
     "android": {
@@ -24,6 +25,7 @@
     },
     "plugins": [
       "expo-secure-store",
+      "expo-apple-authentication",
       [
         "expo-notifications",
         {

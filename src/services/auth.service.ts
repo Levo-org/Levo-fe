@@ -33,8 +33,8 @@ export const authService = {
   loginWithGoogle: (idToken: string) =>
     api.post<ApiResponse<AuthResponse>>('/auth/google', { idToken }),
 
-  loginWithApple: (idToken: string) =>
-    api.post<ApiResponse<AuthResponse>>('/auth/apple', { idToken }),
+  loginWithApple: (idToken: string, name?: string) =>
+    api.post<ApiResponse<AuthResponse>>('/auth/apple', { idToken, name }),
 
   refreshToken: (refreshToken: string) =>
     api.post<ApiResponse<{ accessToken: string; expiresIn: number }>>('/auth/refresh', { refreshToken }),
