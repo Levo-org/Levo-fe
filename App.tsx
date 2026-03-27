@@ -2,12 +2,27 @@ import 'react-native-url-polyfill/auto';
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { RootNavigator } from './src/navigation';
 import { useAuthStore } from './src/stores/authStore';
 import { loadGoogleSigninModule } from './src/utils/googleSignin';
+import { colors } from './src/theme/colors';
+
+function TopSafeAreaMask() {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.safeTopMask,
+        { height: insets.top },
+      ]}
+    />
+  );
+}
 
 export default function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession);
@@ -32,7 +47,8 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
+        <StatusBar style="dark" translucent={false} backgroundColor={colors.background.primary} />
+        <TopSafeAreaMask />
         <RootNavigator />
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -42,5 +58,13 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  safeTopMask: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.background.primary,
+    zIndex: 999,
   },
 });
