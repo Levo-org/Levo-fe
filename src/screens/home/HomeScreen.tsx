@@ -18,6 +18,7 @@ import ProgressIndicator from '../../components/ProgressIndicator';
 import { useAuthStore } from '../../stores/authStore';
 import { useUserStore } from '../../stores/userStore';
 import { homeService } from '../../services/home.service';
+import { streakService } from '../../services/streak.service';
 import { getTodayAppUsageSeconds } from '../../services/appUsage.service';
 import { useApi } from '../../hooks/useApi';
 import { colors } from '../../theme/colors';
@@ -59,19 +60,25 @@ export default function HomeScreen() {
   const { streak, xp, setStreak, setHearts } = useUserStore();
   const [todayActiveMinutes, setTodayActiveMinutes] = React.useState(0);
 
-  const fetcher = useCallback(
-    () => homeService.getHomeData({
+  const fetcher = useCallback(async () => {
+    const usageSeconds = await getTodayAppUsageSeconds();
+    const usageMinutes = Math.floor(usageSeconds / 60);
+
+    await streakService.syncDailyGoalProgress(usageMinutes);
+
+    return homeService.getHomeData({
       targetLanguage: user?.activeLanguage,
       level: languageProfile?.level,
-    }),
-    [user?.activeLanguage, languageProfile?.level],
-  );
+    });
+  }, [user?.activeLanguage, languageProfile?.level]);
   const { data, loading, refetch } = useApi<HomeData>(fetcher);
   const [refreshing, setRefreshing] = React.useState(false);
 
   const refreshTodayActiveMinutes = useCallback(async () => {
     const usageSeconds = await getTodayAppUsageSeconds();
-    setTodayActiveMinutes(Math.floor(usageSeconds / 60));
+    const usageMinutes = Math.floor(usageSeconds / 60);
+    setTodayActiveMinutes(usageMinutes);
+    await streakService.syncDailyGoalProgress(usageMinutes);
   }, []);
 
   useEffect(() => {
@@ -119,7 +126,6 @@ export default function HomeScreen() {
   const todayCompleted = todayActiveMinutes;
   const todayTotal = dailyGoalMinutes;
   const todayProgress = todayTotal > 0 ? Math.min(100, Math.round((todayCompleted / todayTotal) * 100)) : 0;
-  const grammarProgress = Math.max(0, Math.min(100, data?.profile?.grammarProgress ?? 0));
 
   return (
     <View style={styles.container}>
@@ -167,11 +173,6 @@ export default function HomeScreen() {
               </View>
               <Text style={styles.todaySubValue}>오늘 앱 사용 시간 기준으로 갱신됩니다</Text>
               <ProgressIndicator current={todayProgress} total={100} color={colors.primary.main} />
-              <View style={styles.todayRowSecondary}>
-                <Text style={styles.todayLabel}>문법 학습 진행도</Text>
-                <Text style={styles.todayValueSecondary}>{grammarProgress}%</Text>
-              </View>
-              <ProgressIndicator current={grammarProgress} total={100} color={colors.accent.blue} height={6} />
             </View>
           </Animated.View>
 
@@ -268,8 +269,6 @@ const styles = StyleSheet.create({
   categoryProgressTrack: { flex: 1, height: 4, backgroundColor: colors.background.tertiary, borderRadius: 2, overflow: 'hidden' },
   categoryProgressFill: { height: 4, borderRadius: 2 },
   categoryProgressText: { ...typography.caption, color: colors.text.secondary, fontSize: 10 },
-  todayRowSecondary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-  todayValueSecondary: { ...typography.small, color: colors.accent.blue, fontWeight: '700' },
   quizCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.primary.main, borderRadius: 16, padding: 20 },
   quizLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   quizEmoji: { fontSize: 32 },

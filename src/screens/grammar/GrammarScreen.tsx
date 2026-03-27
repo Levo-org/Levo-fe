@@ -69,15 +69,16 @@ export default function GrammarScreen() {
                 </View>
                 <Text style={styles.topicTitle}>{topic.title}</Text>
                 <Text style={styles.topicDesc}>{topic.subtitle}</Text>
-                <View style={styles.topicProgress}>
+                <Text style={styles.topicProgressLabel}>학습 진행도</Text>
+                <View style={styles.topicProgressBarRow}>
                   <ProgressIndicator
                     current={topic.progress}
                     total={100}
                     height={4}
                     color={levelColors[topic.level] || colors.accent.blue}
                   />
-                  <Text style={styles.topicProgressText}>{topic.progress}%</Text>
                 </View>
+                <Text style={styles.topicProgressText}>{topic.progress}%</Text>
               </TouchableOpacity>
             </Animated.View>
           ))}
@@ -102,6 +103,7 @@ const styles = StyleSheet.create({
   levelText: { ...typography.caption, fontWeight: '800' },
   topicTitle: { ...typography.h3, color: colors.text.primary, marginBottom: 4 },
   topicDesc: { ...typography.small, color: colors.text.secondary, marginBottom: 12 },
-  topicProgress: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  topicProgressText: { ...typography.caption, color: colors.text.secondary, fontWeight: '600', width: 32, textAlign: 'right' },
+  topicProgressLabel: { ...typography.caption, color: colors.text.secondary, marginBottom: 6 },
+  topicProgressBarRow: { width: '100%' },
+  topicProgressText: { ...typography.caption, color: colors.text.secondary, fontWeight: '600', marginTop: 6, textAlign: 'right' },
 });
