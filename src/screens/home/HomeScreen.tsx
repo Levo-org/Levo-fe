@@ -56,7 +56,7 @@ const FALLBACK_CATEGORIES: HomeCategoryCard[] = [
 
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
-  const { user, languageProfile } = useAuthStore();
+  const { user } = useAuthStore();
   const { streak, xp, setStreak, setHearts } = useUserStore();
   const [todayActiveMinutes, setTodayActiveMinutes] = React.useState(0);
 
@@ -64,13 +64,14 @@ export default function HomeScreen() {
     const usageSeconds = await getTodayAppUsageSeconds();
     const usageMinutes = Math.floor(usageSeconds / 60);
 
-    await streakService.syncDailyGoalProgress(usageMinutes);
+    try {
+      await streakService.syncDailyGoalProgress(usageMinutes);
+    } catch (err) {
+      console.warn('[HomeScreen] Failed to sync daily goal progress:', err);
+    }
 
-    return homeService.getHomeData({
-      targetLanguage: user?.activeLanguage,
-      level: languageProfile?.level,
-    });
-  }, [user?.activeLanguage, languageProfile?.level]);
+    return homeService.getHomeData();
+  }, []);
   const { data, loading, refetch } = useApi<HomeData>(fetcher);
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -78,7 +79,11 @@ export default function HomeScreen() {
     const usageSeconds = await getTodayAppUsageSeconds();
     const usageMinutes = Math.floor(usageSeconds / 60);
     setTodayActiveMinutes(usageMinutes);
-    await streakService.syncDailyGoalProgress(usageMinutes);
+    try {
+      await streakService.syncDailyGoalProgress(usageMinutes);
+    } catch (err) {
+      console.warn('[HomeScreen] Failed to sync daily goal progress:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -89,7 +94,8 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void Promise.all([refetch(), refreshTodayActiveMinutes()]);
+      void refetch();
+      void refreshTodayActiveMinutes();
 
       const intervalId = setInterval(() => {
         void refreshTodayActiveMinutes();
