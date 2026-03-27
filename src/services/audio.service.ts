@@ -11,6 +11,8 @@ interface SpeakOptions {
 
 const DEFAULT_LANGUAGE = 'en-US';
 let availableVoices: Speech.Voice[] | null = null;
+const NOVELTY_VOICE_KEYWORDS = ['trinoids', 'zarvox', 'whisper', 'goodnews', 'badnews', 'bells'];
+const START_DETECTION_DELAY_MS = 350;
 
 const mapToSpeechLocale = (language?: string): string => {
   if (!language) return DEFAULT_LANGUAGE;
@@ -34,14 +36,34 @@ const getPreferredVoice = async (language?: string): Promise<Speech.Voice | null
 
   const locale = mapToSpeechLocale(language);
   const languagePrefix = locale.split('-')[0];
+  const isNoveltyVoice = (voice: Speech.Voice): boolean => {
+    const signature = `${voice.identifier || ''} ${voice.name || ''}`.toLowerCase();
+    return NOVELTY_VOICE_KEYWORDS.some((keyword) => signature.includes(keyword));
+  };
+  const preferNaturalVoice = (voice: Speech.Voice): number => {
+    let score = 0;
+    if (!isNoveltyVoice(voice)) score += 10;
+    if ((voice.quality || '').toLowerCase() === 'enhanced') score += 3;
+    if ((voice.quality || '').toLowerCase() === 'default') score += 2;
+    if ((voice.name || '').toLowerCase().includes('compact')) score -= 1;
+    return score;
+  };
+  const sortByNaturalVoice = (list: Speech.Voice[]) =>
+    [...list].sort((a, b) => preferNaturalVoice(b) - preferNaturalVoice(a));
 
-  const exact = voices.find((voice) => voice.language?.toLowerCase() === locale.toLowerCase());
+  const exact = sortByNaturalVoice(
+    voices.filter((voice) => voice.language?.toLowerCase() === locale.toLowerCase()),
+  )[0];
   if (exact) return exact;
 
-  const sameLanguage = voices.find((voice) => voice.language?.toLowerCase().startsWith(`${languagePrefix}-`));
+  const sameLanguage = sortByNaturalVoice(
+    voices.filter((voice) => voice.language?.toLowerCase().startsWith(`${languagePrefix}-`)),
+  )[0];
   if (sameLanguage) return sameLanguage;
 
-  const defaultVoice = voices.find((voice) => voice.language?.toLowerCase().startsWith('en-'));
+  const defaultVoice = sortByNaturalVoice(
+    voices.filter((voice) => voice.language?.toLowerCase().startsWith('en-')),
+  )[0];
   return defaultVoice || voices[0] || null;
 };
 
@@ -67,6 +89,30 @@ export const audioService = {
 
     const runSpeech = (params: { language: string; voice?: string }) =>
       new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const settleResolve = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        const settleReject = (error: Error) => {
+          if (settled) return;
+          settled = true;
+          reject(error);
+        };
+
+        const startCheck = setTimeout(() => {
+          Speech.isSpeakingAsync()
+            .then((speaking) => {
+              if (!speaking) {
+                settleReject(new Error('Speech did not start'));
+              }
+            })
+            .catch(() => {
+              settleReject(new Error('Unable to verify speech state'));
+            });
+        }, START_DETECTION_DELAY_MS);
+
         Speech.speak(content, {
           language: params.language,
           voice: params.voice,
@@ -74,15 +120,18 @@ export const audioService = {
           pitch: options.pitch ?? 1,
           volume: 1,
           onDone: () => {
+            clearTimeout(startCheck);
             options.onDone?.();
-            resolve();
+            settleResolve();
           },
           onStopped: () => {
+            clearTimeout(startCheck);
             options.onStopped?.();
-            resolve();
+            settleResolve();
           },
           onError: (error) => {
-            reject(error);
+            clearTimeout(startCheck);
+            settleReject(error instanceof Error ? error : new Error('Speech failed'));
           },
         });
       });
@@ -93,8 +142,12 @@ export const audioService = {
       try {
         await runSpeech({ language: locale });
       } catch (fallbackError) {
-        options.onError?.(fallbackError as Error);
-        throw fallbackError;
+        try {
+          await runSpeech({ language: DEFAULT_LANGUAGE });
+        } catch {
+          options.onError?.(fallbackError as Error);
+          throw fallbackError;
+        }
       }
     }
   },
