@@ -28,7 +28,8 @@ export default function ProgressIndicator({
   label,
 }: ProgressIndicatorProps) {
   const progress = useSharedValue(0);
-  const percentage = total > 0 ? (current / total) * 100 : 0;
+  const rawPercentage = total > 0 ? (current / total) * 100 : 0;
+  const percentage = Math.max(0, Math.min(100, rawPercentage));
 
   useEffect(() => {
     progress.value = withTiming(percentage, { duration: 600 });
