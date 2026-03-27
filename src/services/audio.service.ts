@@ -48,35 +48,47 @@ const getPreferredVoice = async (language?: string): Promise<Speech.Voice | null
 export const audioService = {
   speak: async (text: string, options: SpeakOptions = {}): Promise<void> => {
     const content = text.trim();
-    if (!content) return;
+    if (!content) {
+      throw new Error('Speech text is empty');
+    }
 
     await Speech.stop();
 
     const preferredVoice = await getPreferredVoice(options.language);
     const locale = mapToSpeechLocale(options.language);
 
-    Speech.speak(content, {
-      language: preferredVoice?.language || locale,
-      voice: preferredVoice?.identifier,
-      rate: options.rate ?? 0.95,
-      pitch: options.pitch ?? 1,
-      volume: 1,
-      onDone: options.onDone,
-      onStopped: options.onStopped,
-      onError: () => {
+    const runSpeech = (params: { language: string; voice?: string }) =>
+      new Promise<void>((resolve, reject) => {
         Speech.speak(content, {
-          language: locale,
+          language: params.language,
+          voice: params.voice,
           rate: options.rate ?? 0.95,
           pitch: options.pitch ?? 1,
           volume: 1,
-          onDone: options.onDone,
-          onStopped: options.onStopped,
-          onError: (fallbackError) => {
-            options.onError?.(fallbackError);
+          onDone: () => {
+            options.onDone?.();
+            resolve();
+          },
+          onStopped: () => {
+            options.onStopped?.();
+            resolve();
+          },
+          onError: (error) => {
+            reject(error);
           },
         });
-      },
-    });
+      });
+
+    try {
+      await runSpeech({ language: preferredVoice?.language || locale, voice: preferredVoice?.identifier });
+    } catch {
+      try {
+        await runSpeech({ language: locale });
+      } catch (fallbackError) {
+        options.onError?.(fallbackError as Error);
+        throw fallbackError;
+      }
+    }
   },
 
   stop: async (): Promise<void> => {
