@@ -12,6 +12,7 @@ interface SpeakOptions {
 
 const DEFAULT_LANGUAGE = 'en-US';
 let audioModeInitialized = false;
+let availableVoices: Speech.Voice[] | null = null;
 
 const mapToSpeechLocale = (language?: string): string => {
   if (!language) return DEFAULT_LANGUAGE;
@@ -23,12 +24,36 @@ const mapToSpeechLocale = (language?: string): string => {
   return 'en-US';
 };
 
+const getVoices = async (): Promise<Speech.Voice[]> => {
+  if (availableVoices) return availableVoices;
+  availableVoices = await Speech.getAvailableVoicesAsync();
+  return availableVoices;
+};
+
+const getPreferredVoice = async (language?: string): Promise<Speech.Voice | null> => {
+  const voices = await getVoices();
+  if (voices.length === 0) return null;
+
+  const locale = mapToSpeechLocale(language);
+  const languagePrefix = locale.split('-')[0];
+
+  const exact = voices.find((voice) => voice.language?.toLowerCase() === locale.toLowerCase());
+  if (exact) return exact;
+
+  const sameLanguage = voices.find((voice) => voice.language?.toLowerCase().startsWith(`${languagePrefix}-`));
+  if (sameLanguage) return sameLanguage;
+
+  const defaultVoice = voices.find((voice) => voice.language?.toLowerCase().startsWith('en-'));
+  return defaultVoice || voices[0] || null;
+};
+
 export const audioService = {
   speak: async (text: string, options: SpeakOptions = {}): Promise<void> => {
     const content = text.trim();
     if (!content) return;
 
     if (!audioModeInitialized) {
+      await Audio.setIsEnabledAsync(true);
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         interruptionModeIOS: InterruptionModeIOS.DoNotMix,
@@ -43,8 +68,12 @@ export const audioService = {
 
     await Speech.stop();
 
+    const preferredVoice = await getPreferredVoice(options.language);
+    const locale = mapToSpeechLocale(options.language);
+
     Speech.speak(content, {
-      language: mapToSpeechLocale(options.language),
+      language: preferredVoice?.language || locale,
+      voice: preferredVoice?.identifier,
       rate: options.rate ?? 0.95,
       pitch: options.pitch ?? 1,
       volume: 1,
