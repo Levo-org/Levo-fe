@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList, GrammarTopic } from '../../types';
 import BackButton from '../../components/BackButton';
@@ -31,7 +31,13 @@ export default function GrammarScreen() {
   const navigation = useNavigation<Nav>();
 
   const fetcher = useCallback(() => grammarService.getTopics(), []);
-  const { data: topics, loading } = useApi<GrammarTopic[]>(fetcher);
+  const { data: topics, loading, refetch } = useApi<GrammarTopic[]>(fetcher);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
 
   return (
     <View style={styles.container}>
