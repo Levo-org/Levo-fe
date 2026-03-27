@@ -20,9 +20,9 @@ export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   // Vocabulary
-  Vocabulary: Record<string, any> | undefined;
-  Flashcard: Record<string, any>;
-  FlashcardComplete: Record<string, any>;
+  Vocabulary: undefined;
+  Flashcard: { chapter?: number; wordIds?: string[] } | undefined;
+  FlashcardComplete: { totalCards: number; knownCards: number; wrongWordIds: string[]; chapter?: number };
   // Grammar
   Grammar: Record<string, any> | undefined;
   GrammarDetail: Record<string, any>;

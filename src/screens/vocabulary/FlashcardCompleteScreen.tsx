@@ -9,7 +9,7 @@ import { typography } from '../../theme/typography';
 type Props = NativeStackScreenProps<RootStackParamList, 'FlashcardComplete'>;
 
 export default function FlashcardCompleteScreen({ navigation, route }: Props) {
-  const { totalCards, knownCards } = route.params;
+  const { totalCards, knownCards, wrongWordIds, chapter } = route.params;
   const unknownCards = totalCards - knownCards;
   const percentage = Math.round((knownCards / totalCards) * 100);
 
@@ -48,10 +48,13 @@ export default function FlashcardCompleteScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.footer}>
-        {unknownCards > 0 && (
+        {wrongWordIds.length > 0 && (
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => navigation.replace('Flashcard')}
+            onPress={() => navigation.replace('Flashcard', {
+              chapter,
+              wordIds: wrongWordIds,
+            })}
             activeOpacity={0.8}
           >
             <Text style={styles.retryButtonText}>모르는 단어 다시 학습</Text>

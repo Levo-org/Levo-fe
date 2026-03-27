@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -19,27 +19,54 @@ interface FlashcardData {
   total: number;
 }
 
-export default function FlashcardScreen({ navigation }: Props) {
+export default function FlashcardScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [knownCount, setKnownCount] = useState(0);
+  const [wrongWordIds, setWrongWordIds] = useState<string[]>([]);
+  const [isCompleting, setIsCompleting] = useState(false);
   const flip = useSharedValue(0);
 
-  const fetcher = useCallback(() => vocabularyService.getFlashcards(30), []);
+  const selectedChapter = route.params?.chapter;
+  const retryWordIds = route.params?.wordIds;
+  const isRetryMode = Array.isArray(retryWordIds) && retryWordIds.length > 0;
+  const flashcardCount = isRetryMode ? retryWordIds.length : 30;
+  const fetcher = useCallback(
+    () => vocabularyService.getFlashcards(flashcardCount, {
+      chapter: typeof selectedChapter === 'number' ? selectedChapter : undefined,
+      wordIds: Array.isArray(retryWordIds) ? retryWordIds : undefined,
+    }),
+    [flashcardCount, selectedChapter, retryWordIds],
+  );
   const { data, loading } = useApi<FlashcardData>(fetcher);
 
   const cards = data?.cards ?? [];
-  const card = cards[currentIndex];
+  const safeIndex = useMemo(
+    () => (cards.length > 0 ? Math.min(currentIndex, cards.length - 1) : 0),
+    [cards.length, currentIndex],
+  );
+  const card = cards[safeIndex] ?? null;
+
+  useEffect(() => {
+    if (!loading && cards.length > 0 && currentIndex >= cards.length && !isCompleting) {
+      navigation.replace('FlashcardComplete', {
+        totalCards: cards.length,
+        knownCards: knownCount,
+        wrongWordIds,
+        chapter: selectedChapter,
+      });
+    }
+  }, [loading, cards.length, currentIndex, knownCount, navigation, isCompleting, wrongWordIds, selectedChapter]);
 
   const frontStyle = useAnimatedStyle(() => ({
     transform: [{ rotateY: `${interpolate(flip.value, [0, 1], [0, 180])}deg` }],
-    backfaceVisibility: 'hidden' as any,
+    backfaceVisibility: 'hidden',
   }));
 
   const backStyle = useAnimatedStyle(() => ({
     transform: [{ rotateY: `${interpolate(flip.value, [0, 1], [180, 360])}deg` }],
-    backfaceVisibility: 'hidden' as any,
+    backfaceVisibility: 'hidden',
   }));
 
   const toggleFlip = () => {
@@ -48,39 +75,54 @@ export default function FlashcardScreen({ navigation }: Props) {
   };
 
   const handleAnswer = useCallback(async (known: boolean) => {
-    if (!card) return;
+    if (!card || isCompleting) return;
     // Record answer via API
     try {
       await vocabularyService.answerFlashcard(card._id, known);
-    } catch { /* silently continue */ }
+    } catch (err) {
+      console.warn('[FlashcardScreen] Failed to record flashcard answer:', err);
+    }
 
     if (known) setKnownCount((c) => c + 1);
-    if (currentIndex < cards.length - 1) {
+    const nextWrongWordIds = known
+      ? wrongWordIds
+      : (wrongWordIds.includes(card._id) ? wrongWordIds : [...wrongWordIds, card._id]);
+
+    if (!known) {
+      setWrongWordIds(nextWrongWordIds);
+    }
+
+    if (safeIndex < cards.length - 1) {
       setCurrentIndex((i) => i + 1);
       flip.value = withTiming(0, { duration: 200 });
       setIsFlipped(false);
     } else {
+      setIsCompleting(true);
       navigation.replace('FlashcardComplete', {
         totalCards: cards.length,
         knownCards: known ? knownCount + 1 : knownCount,
+        wrongWordIds: nextWrongWordIds,
+        chapter: selectedChapter,
       });
     }
-  }, [currentIndex, knownCount, navigation, flip, card, cards.length]);
+  }, [knownCount, navigation, flip, card, cards.length, safeIndex, isCompleting, wrongWordIds, selectedChapter]);
 
-  if (loading || cards.length === 0) {
+  if (loading || isCompleting) {
     return (
       <View style={[styles.container, styles.center]}>
-        {loading ? (
-          <ActivityIndicator size="large" color={colors.primary.main} />
-        ) : (
-          <>
-            <Text style={{ fontSize: 48, marginBottom: 16 }}>📝</Text>
-            <Text style={{ ...typography.body, color: colors.text.secondary }}>플래시카드가 없습니다</Text>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 24 }}>
-              <Text style={{ ...typography.button, color: colors.primary.main }}>돌아가기</Text>
-            </TouchableOpacity>
-          </>
-        )}
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
+
+  if (cards.length === 0 || !card) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>📝</Text>
+        <Text style={{ ...typography.body, color: colors.text.secondary }}>플래시카드가 없습니다</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 24 }}>
+          <Text style={{ ...typography.button, color: colors.primary.main }}>돌아가기</Text>
+        </TouchableOpacity>
       </View>
     );
   }
