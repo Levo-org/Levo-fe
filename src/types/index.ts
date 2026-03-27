@@ -236,10 +236,29 @@ export interface WeekDay {
 
 export interface HomeData {
   greeting: string;
-  hearts: { current: number; max: number; timeUntilRefill: string | null };
+  user?: {
+    name: string;
+    profileImage?: string;
+    coins: number;
+    isPremium: boolean;
+    settings?: { dailyGoalMinutes: number };
+  };
+  profile?: {
+    level: string;
+    userLevel: number;
+    xp: number;
+    hearts: number;
+    vocabularyProgress: number;
+    grammarProgress: number;
+    conversationProgress: number;
+    listeningProgress: number;
+    readingProgress: number;
+  } | null;
+  hearts?: { current: number; max: number; timeUntilRefill: string | null };
   todayLesson: { progress: number; completed: number; total: number; nextLessonId?: string };
-  streak: { current: number; isInDanger: boolean; weeklyRecord: WeekDay[] };
-  categories: { id: string; label: string; progress: number }[];
+  todaySummary?: { studied: boolean; completedLessons: number; learnedWords: number };
+  streak: { current: number; isInDanger: boolean; weeklyRecord?: WeekDay[]; currentStreak?: number; longestStreak?: number; todayCompleted?: boolean };
+  categories: { id: string; label: string; progress: number; completed?: number; total?: number }[];
   state: 'normal' | 'low-hearts' | 'streak-danger';
 }
 

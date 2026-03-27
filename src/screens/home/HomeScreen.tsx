@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList, HomeData } from '../../types';
 import TopBar from '../../components/TopBar';
@@ -18,6 +18,7 @@ import ProgressIndicator from '../../components/ProgressIndicator';
 import { useAuthStore } from '../../stores/authStore';
 import { useUserStore } from '../../stores/userStore';
 import { homeService } from '../../services/home.service';
+import { getTodayAppUsageSeconds } from '../../services/appUsage.service';
 import { useApi } from '../../hooks/useApi';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -32,7 +33,19 @@ const CATEGORY_META: Record<string, { emoji: string; title: string; desc: string
   reading: { emoji: '📚', title: '읽기', desc: '독해 능력 향상', screen: 'ReadingPractice', color: '#FF4B4B' },
 };
 
-const FALLBACK_CATEGORIES = [
+interface HomeCategoryCard {
+  id: string;
+  emoji: string;
+  title: string;
+  desc: string;
+  progress: number;
+  screen: string;
+  color: string;
+  total?: number;
+  completed?: number;
+}
+
+const FALLBACK_CATEGORIES: HomeCategoryCard[] = [
   { id: 'vocabulary', emoji: '📝', title: '어휘', desc: '새로운 단어 학습', progress: 0, screen: 'Vocabulary', color: '#58CC02' },
   { id: 'grammar', emoji: '📖', title: '문법', desc: '문법 규칙 학습', progress: 0, screen: 'Grammar', color: '#1CB0F6' },
   { id: 'conversation', emoji: '💬', title: '회화', desc: '실전 대화 연습', progress: 0, screen: 'Conversation', color: '#CE82FF' },
@@ -42,35 +55,70 @@ const FALLBACK_CATEGORIES = [
 
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
-  const { user } = useAuthStore();
+  const { user, languageProfile } = useAuthStore();
   const { streak, xp, setStreak, setHearts } = useUserStore();
+  const [todayActiveMinutes, setTodayActiveMinutes] = React.useState(0);
 
-  const fetcher = useCallback(() => homeService.getHomeData(), []);
+  const fetcher = useCallback(
+    () => homeService.getHomeData({
+      targetLanguage: user?.activeLanguage,
+      level: languageProfile?.level,
+    }),
+    [user?.activeLanguage, languageProfile?.level],
+  );
   const { data, loading, refetch } = useApi<HomeData>(fetcher);
   const [refreshing, setRefreshing] = React.useState(false);
 
+  const refreshTodayActiveMinutes = useCallback(async () => {
+    const usageSeconds = await getTodayAppUsageSeconds();
+    setTodayActiveMinutes(Math.floor(usageSeconds / 60));
+  }, []);
+
   useEffect(() => {
     if (!data) return;
-    if (data.streak) setStreak(data.streak.current);
+    if (data.streak) setStreak(data.streak.current ?? data.streak.currentStreak ?? 0);
     if (data.hearts) setHearts(data.hearts.current);
-  }, [data]);
+  }, [data, setStreak, setHearts]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshTodayActiveMinutes();
+
+      const intervalId = setInterval(() => {
+        void refreshTodayActiveMinutes();
+      }, 30000);
+
+      return () => clearInterval(intervalId);
+    }, [refreshTodayActiveMinutes]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetch(), refreshTodayActiveMinutes()]);
     setRefreshing(false);
   };
 
-  const categories = data?.categories
+  const categories: HomeCategoryCard[] = data?.categories
     ? data.categories.map((c) => {
         const meta = CATEGORY_META[c.id] || { emoji: '📋', title: c.label, desc: '', screen: 'Vocabulary', color: '#58CC02' };
-        return { ...meta, id: c.id, progress: c.progress };
+        return {
+          id: c.id,
+          emoji: meta.emoji,
+          title: meta.title,
+          desc: meta.desc,
+          progress: c.progress,
+          screen: meta.screen,
+          color: meta.color,
+          total: c.total ?? 0,
+          completed: c.completed ?? 0,
+        };
       })
     : FALLBACK_CATEGORIES;
 
-  const todayProgress = data?.todayLesson?.progress ?? 0;
-  const todayTotal = data?.todayLesson?.total ?? 10;
-  const todayCompleted = data?.todayLesson?.completed ?? 0;
+  const dailyGoalMinutes = data?.user?.settings?.dailyGoalMinutes ?? user?.settings?.dailyGoalMinutes ?? 10;
+  const todayCompleted = todayActiveMinutes;
+  const todayTotal = dailyGoalMinutes;
+  const todayProgress = todayTotal > 0 ? Math.min(100, Math.round((todayCompleted / todayTotal) * 100)) : 0;
 
   return (
     <View style={styles.container}>
@@ -116,6 +164,7 @@ export default function HomeScreen() {
                 <Text style={styles.todayLabel}>일일 목표</Text>
                 <Text style={styles.todayValue}>{todayCompleted}/{todayTotal}분</Text>
               </View>
+              <Text style={styles.todaySubValue}>오늘 앱 사용 시간 기준으로 갱신됩니다</Text>
               <ProgressIndicator current={todayProgress} total={100} color={colors.primary.main} />
             </View>
           </Animated.View>
@@ -145,7 +194,9 @@ export default function HomeScreen() {
                           ]}
                         />
                       </View>
-                      <Text style={styles.categoryProgressText}>{cat.progress}%</Text>
+                      <Text style={styles.categoryProgressText}>
+                        {cat.progress}%{typeof cat.completed === 'number' && typeof cat.total === 'number' ? ` (${cat.completed}/${cat.total})` : ''}
+                      </Text>
                     </View>
                   </View>
                   <Feather name="chevron-right" size={20} color={colors.text.secondary} />
@@ -199,6 +250,7 @@ const styles = StyleSheet.create({
   todayRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   todayLabel: { ...typography.body, color: colors.text.secondary },
   todayValue: { ...typography.body, color: colors.primary.main, fontWeight: '700' },
+  todaySubValue: { ...typography.caption, color: colors.text.secondary },
   categories: { gap: 12 },
   categoryCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background.secondary, borderRadius: 16, padding: 16, gap: 12 },
   categoryIcon: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },

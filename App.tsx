@@ -9,6 +9,7 @@ import { RootNavigator } from './src/navigation';
 import { useAuthStore } from './src/stores/authStore';
 import { loadGoogleSigninModule } from './src/utils/googleSignin';
 import { colors } from './src/theme/colors';
+import { initAppUsageTracking, stopAppUsageTracking } from './src/services/appUsage.service';
 
 function TopSafeAreaMask() {
   const insets = useSafeAreaInsets();
@@ -42,6 +43,14 @@ export default function App() {
     }
 
     restoreSession();
+  }, []);
+
+  useEffect(() => {
+    void initAppUsageTracking();
+
+    return () => {
+      void stopAppUsageTracking();
+    };
   }, []);
 
   return (

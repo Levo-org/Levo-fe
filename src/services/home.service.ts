@@ -2,6 +2,6 @@ import api from './api';
 import type { ApiResponse, HomeData } from '../types';
 
 export const homeService = {
-  getHomeData: () =>
-    api.get<ApiResponse<HomeData>>('/home'),
+  getHomeData: (params?: { targetLanguage?: string; level?: string }) =>
+    api.get<ApiResponse<HomeData>>('/home', { params }),
 };
