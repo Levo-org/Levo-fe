@@ -78,8 +78,22 @@ Levo-fe/
 ```bash
 cd Levo-fe
 npm install
-npx expo start
+npm run start
 # iOS: i 키 / Android: a 키
+```
+
+- 기본 `start`는 `--localhost`로 실행되어 iOS 시뮬레이터의 `exp://<LAN-IP>:8081` 타임아웃 문제를 줄입니다.
+- 실기기 테스트 시에는 `npm run start:lan` 또는 `npm run start:tunnel`을 사용하세요.
+
+### iOS 시뮬레이터 타임아웃(code 60) 빠른 해결
+
+```bash
+# Expo Go 기준 iOS 시뮬레이터 실행
+npm run ios:go
+
+# 이미 시뮬레이터가 꼬였으면 재실행
+xcrun simctl shutdown all
+open -a Simulator
 ```
 
 ### 환경 변수
