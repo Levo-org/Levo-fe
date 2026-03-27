@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+
 export interface GoogleSigninModule {
   GoogleSignin: {
     configure: (config: { webClientId: string; iosClientId?: string }) => void;
@@ -13,10 +15,23 @@ export interface GoogleSigninModule {
 }
 
 export const loadGoogleSigninModule = (): GoogleSigninModule | null => {
+  const runtimeInfo = Constants as {
+    executionEnvironment?: string;
+    appOwnership?: string | null;
+  };
+
+  const isExpoGo =
+    runtimeInfo.executionEnvironment === 'storeClient' ||
+    runtimeInfo.appOwnership === 'expo';
+
+  if (isExpoGo) {
+    return null;
+  }
+
   try {
     return require('@react-native-google-signin/google-signin') as GoogleSigninModule;
-  } catch (error) {
-    console.warn('[GoogleSignin] Native module is unavailable in this runtime:', error);
+  } catch {
+    console.warn('[GoogleSignin] Native module is unavailable in this runtime.');
     return null;
   }
 };
