@@ -171,7 +171,7 @@ export const vocabularyService = {
         level,
         chapter: params?.chapter,
         wordIds: params?.wordIds?.length ? params.wordIds.join(',') : undefined,
-        includeWrong: false,
+        includeWrong: !(params?.wordIds && params.wordIds.length > 0),
       },
     });
 
