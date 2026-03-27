@@ -43,7 +43,7 @@ export const authService = {
     api.post<ApiResponse<null>>('/auth/logout'),
 
   getMe: () =>
-    api.get<ApiResponse<{ user: User; languageProfile: LanguageProfile }>>('/users/me'),
+    api.get<ApiResponse<{ user: User; languageProfile: LanguageProfile | null }>>('/users/me'),
 
   completeOnboarding: (data: OnboardingRequest) =>
     api.post<ApiResponse<{ user: User; languageProfile: LanguageProfile }>>('/users/me/onboarding', data),

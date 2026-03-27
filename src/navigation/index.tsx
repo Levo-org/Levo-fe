@@ -44,6 +44,8 @@ const Stack: any = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const isAuthenticated = useAuthStore((state: any) => state.isAuthenticated);
   const isLoading = useAuthStore((state: any) => state.isLoading);
+  const languageProfile = useAuthStore((state: any) => state.languageProfile);
+  const needsOnboarding = isAuthenticated && (!languageProfile?.targetLanguage || !languageProfile?.level);
 
   if (isLoading) {
     return (
@@ -56,7 +58,7 @@ export function RootNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
+        {!isAuthenticated || needsOnboarding ? (
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : (
           <>

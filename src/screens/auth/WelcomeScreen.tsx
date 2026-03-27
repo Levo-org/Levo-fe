@@ -4,7 +4,7 @@ import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import type { AuthStackParamList, User } from '../../types';
+import type { AuthStackParamList, User, LanguageProfile } from '../../types';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
@@ -43,6 +43,28 @@ export default function WelcomeScreen(_props: Props) {
     },
   });
 
+  const hydrateProfileIfExists = async (
+    fallbackUser: User,
+    tokens: { accessToken: string; refreshToken: string; expiresIn?: number },
+    isNewUser: boolean
+  ) => {
+    await setAuthenticated(fallbackUser, tokens, null);
+
+    if (isNewUser) {
+      return;
+    }
+
+    try {
+      const { data: meRes } = await authService.getMe();
+      if (meRes.success && meRes.data) {
+        const languageProfile: LanguageProfile | null = meRes.data.languageProfile ?? null;
+        await setAuthenticated(meRes.data.user, tokens, languageProfile);
+      }
+    } catch (error: unknown) {
+      console.warn('[WelcomeScreen] Failed to hydrate profile after login:', error);
+    }
+  };
+
   const handleGoogleLogin = async () => {
     if (loading) return;
 
@@ -75,7 +97,7 @@ export default function WelcomeScreen(_props: Props) {
       const { data: res } = await authService.loginWithGoogle(idToken);
       if (res.success && res.data) {
         const { user, tokens } = res.data;
-        await setAuthenticated(mapAuthUserToUser(user), tokens, null);
+        await hydrateProfileIfExists(mapAuthUserToUser(user), tokens, user.isNewUser);
       } else {
         Alert.alert('로그인 실패', res.message || '다시 시도해주세요.');
       }
@@ -129,7 +151,7 @@ export default function WelcomeScreen(_props: Props) {
       const { data: res } = await authService.loginWithApple(credential.identityToken, fullName || undefined);
       if (res.success && res.data) {
         const { user, tokens } = res.data;
-        await setAuthenticated(mapAuthUserToUser(user), tokens, null);
+        await hydrateProfileIfExists(mapAuthUserToUser(user), tokens, user.isNewUser);
       } else {
         Alert.alert('로그인 실패', res.message || '다시 시도해주세요.');
       }

@@ -6,6 +6,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../types';
 import { useOnboardingStore } from '../../stores/onboardingStore';
 import { useAuthStore } from '../../stores/authStore';
+import { authService } from '../../services/auth.service';
+import { userService } from '../../services/user.service';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import BackButton from '../../components/BackButton';
@@ -13,57 +15,79 @@ import BackButton from '../../components/BackButton';
 type Props = NativeStackScreenProps<AuthStackParamList, 'NotificationSetup'>;
 
 const HOURS = [7, 8, 9, 12, 18, 20, 21];
+const LANGUAGE_CODE_MAP: Record<string, string> = {
+  english: 'en',
+  japanese: 'ja',
+  chinese: 'zh',
+};
 
 export default function NotificationSetupScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [selectedHour, setSelectedHour] = useState(7);
-  const { setNotification, targetLanguage, level, dailyGoalMinutes } = useOnboardingStore();
-  const { setAuthenticated } = useAuthStore();
+  const [submitting, setSubmitting] = useState(false);
+  const { setNotification, targetLanguage, level, dailyGoalMinutes, reset } = useOnboardingStore();
+  const { setAuthenticated, tokens, user } = useAuthStore();
 
   const handleStart = async () => {
+    if (submitting) return;
+
+    if (!targetLanguage || !level) {
+      Alert.alert('온보딩 정보가 부족해요', '언어와 난이도를 먼저 선택해주세요.');
+      navigation.navigate('LanguageSelect');
+      return;
+    }
+
+    if (!tokens || !user) {
+      Alert.alert('세션 오류', '로그인 세션을 확인할 수 없어 다시 로그인해주세요.');
+      return;
+    }
+
+    setSubmitting(true);
     setNotification(notifEnabled, selectedHour);
 
-    // TODO: Call API to complete onboarding
-    // For now, set a mock user as authenticated
-    const mockUser = {
-      _id: 'mock-user-1',
-      name: '학습자',
-      email: 'user@example.com',
-      profileImage: '',
-      activeLanguage: targetLanguage || 'english',
-      isPremium: false,
-      coins: 0,
-      settings: {
-        dailyGoalMinutes: dailyGoalMinutes || 10,
+    try {
+      const languageCode = LANGUAGE_CODE_MAP[targetLanguage] ?? targetLanguage;
+
+      const { data: onboardingRes } = await authService.completeOnboarding({
+        targetLanguage: languageCode,
+        level,
+        dailyGoalMinutes: dailyGoalMinutes ?? 10,
         notificationEnabled: notifEnabled,
         notificationHour: selectedHour,
-        soundEnabled: true,
-        effectsEnabled: true,
-      },
-    };
+      });
 
-    const mockTokens = {
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
-      expiresIn: 3600,
-    };
+      if (!onboardingRes.success || !onboardingRes.data) {
+        Alert.alert('온보딩 저장 실패', onboardingRes.message || '잠시 후 다시 시도해주세요.');
+        return;
+      }
 
-    const mockProfile = {
-      targetLanguage: targetLanguage || 'english',
-      level: level || 'beginner',
-      xp: 0,
-      userLevel: 1,
-      hearts: 5,
-      vocabularyProgress: 0,
-      grammarProgress: 0,
-      conversationProgress: 0,
-      listeningProgress: 0,
-      readingProgress: 0,
-      quizProgress: 0,
-    };
+      let nextUser = onboardingRes.data.user;
 
-    setAuthenticated(mockUser as any, mockTokens as any, mockProfile as any);
+      try {
+        const { data: settingsRes } = await userService.updateSettings({
+          dailyGoalMinutes: dailyGoalMinutes ?? 10,
+          notificationEnabled: notifEnabled,
+          notificationHour: selectedHour,
+        });
+
+        if (settingsRes.success && settingsRes.data) {
+          const maybeSettings = (settingsRes.data as { settings?: typeof nextUser.settings }).settings;
+          const mergedSettings = maybeSettings ?? nextUser.settings;
+          nextUser = { ...nextUser, settings: mergedSettings };
+        }
+      } catch (error: unknown) {
+        console.warn('[NotificationSetupScreen] Failed to update notification settings:', error);
+      }
+
+      await setAuthenticated(nextUser, tokens, onboardingRes.data.languageProfile);
+      reset();
+    } catch (error: unknown) {
+      console.warn('[NotificationSetupScreen] Failed to complete onboarding:', error);
+      Alert.alert('온보딩 저장 실패', '기본 정보 저장 중 문제가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formatHour = (hour: number) => {
@@ -129,12 +153,13 @@ export default function NotificationSetupScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.startButton}
+          <TouchableOpacity
+          style={[styles.startButton, submitting && styles.startButtonDisabled]}
           onPress={handleStart}
+          disabled={submitting}
           activeOpacity={0.8}
         >
-          <Text style={styles.startButtonText}>시작하기 🎉</Text>
+          <Text style={styles.startButtonText}>{submitting ? '저장 중...' : '시작하기 🎉'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -235,6 +260,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  startButtonDisabled: {
+    opacity: 0.7,
   },
   startButtonText: {
     ...typography.button,
