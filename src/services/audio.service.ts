@@ -1,4 +1,5 @@
 import * as Speech from 'expo-speech';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 
 interface SpeakOptions {
   language?: string;
@@ -13,6 +14,11 @@ const DEFAULT_LANGUAGE = 'en-US';
 let availableVoices: Speech.Voice[] | null = null;
 const NOVELTY_VOICE_KEYWORDS = ['trinoids', 'zarvox', 'whisper', 'goodnews', 'badnews', 'bells'];
 const START_DETECTION_DELAY_MS = 350;
+let audioModeInitialized = false;
+
+type ExtendedSpeechOptions = Speech.SpeechOptions & {
+  useApplicationAudioSession?: boolean;
+};
 
 const mapToSpeechLocale = (language?: string): string => {
   if (!language) return DEFAULT_LANGUAGE;
@@ -82,12 +88,25 @@ export const audioService = {
       throw new Error('Speech text is empty');
     }
 
+    if (!audioModeInitialized) {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+        shouldDuckAndroid: true,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+        playThroughEarpieceAndroid: false,
+        staysActiveInBackground: false,
+      });
+      audioModeInitialized = true;
+    }
+
     await Speech.stop();
 
     const preferredVoice = await getPreferredVoice(options.language);
     const locale = mapToSpeechLocale(options.language);
 
-    const runSpeech = (params: { language: string; voice?: string }) =>
+    const runSpeech = (params: { language: string; voice?: string; useApplicationAudioSession?: boolean }) =>
       new Promise<void>((resolve, reject) => {
         let settled = false;
         const settleResolve = () => {
@@ -113,9 +132,10 @@ export const audioService = {
             });
         }, START_DETECTION_DELAY_MS);
 
-        Speech.speak(content, {
+        const speechOptions: ExtendedSpeechOptions = {
           language: params.language,
           voice: params.voice,
+          useApplicationAudioSession: params.useApplicationAudioSession,
           rate: options.rate ?? 0.95,
           pitch: options.pitch ?? 1,
           volume: 1,
@@ -133,17 +153,23 @@ export const audioService = {
             clearTimeout(startCheck);
             settleReject(error instanceof Error ? error : new Error('Speech failed'));
           },
-        });
+        };
+
+        Speech.speak(content, speechOptions);
       });
 
     try {
-      await runSpeech({ language: preferredVoice?.language || locale, voice: preferredVoice?.identifier });
+      await runSpeech({
+        language: preferredVoice?.language || locale,
+        voice: preferredVoice?.identifier,
+        useApplicationAudioSession: false,
+      });
     } catch {
       try {
-        await runSpeech({ language: locale });
+        await runSpeech({ language: locale, useApplicationAudioSession: true });
       } catch (fallbackError) {
         try {
-          await runSpeech({ language: DEFAULT_LANGUAGE });
+          await runSpeech({ language: DEFAULT_LANGUAGE, useApplicationAudioSession: true });
         } catch {
           options.onError?.(fallbackError as Error);
           throw fallbackError;
