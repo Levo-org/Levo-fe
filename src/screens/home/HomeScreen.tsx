@@ -89,14 +89,14 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void refreshTodayActiveMinutes();
+      void Promise.all([refetch(), refreshTodayActiveMinutes()]);
 
       const intervalId = setInterval(() => {
         void refreshTodayActiveMinutes();
       }, 30000);
 
       return () => clearInterval(intervalId);
-    }, [refreshTodayActiveMinutes]),
+    }, [refetch, refreshTodayActiveMinutes]),
   );
 
   const onRefresh = async () => {
