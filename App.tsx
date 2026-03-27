@@ -5,9 +5,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { StyleSheet } from 'react-native';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { RootNavigator } from './src/navigation';
 import { useAuthStore } from './src/stores/authStore';
+import { loadGoogleSigninModule } from './src/utils/googleSignin';
 
 export default function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession);
@@ -20,7 +20,10 @@ export default function App() {
     const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || extra?.googleIosClientId;
 
     if (webClientId) {
-      GoogleSignin.configure({ webClientId, iosClientId });
+      const googleSigninModule = loadGoogleSigninModule();
+      if (googleSigninModule) {
+        googleSigninModule.GoogleSignin.configure({ webClientId, iosClientId });
+      }
     }
 
     restoreSession();

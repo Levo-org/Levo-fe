@@ -3,13 +3,13 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform, ActivityIndicator, 
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import type { AuthStackParamList, User } from '../../types';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
+import { extractGoogleIdToken, loadGoogleSigninModule } from '../../utils/googleSignin';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 
@@ -46,6 +46,14 @@ export default function WelcomeScreen(_props: Props) {
   const handleGoogleLogin = async () => {
     if (loading) return;
 
+    const googleSigninModule = loadGoogleSigninModule();
+    if (!googleSigninModule) {
+      Alert.alert('Google 로그인 안내', 'Expo Go에서는 Google 로그인을 사용할 수 없습니다. iOS 개발 빌드로 실행해주세요.');
+      return;
+    }
+
+    const { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } = googleSigninModule;
+
     setLoading(true);
 
     try {
@@ -54,11 +62,11 @@ export default function WelcomeScreen(_props: Props) {
       }
 
       const signInResponse = await GoogleSignin.signIn();
-      if (!isSuccessResponse(signInResponse)) {
+      if (isSuccessResponse && !isSuccessResponse(signInResponse)) {
         return;
       }
 
-      const idToken = signInResponse.data.idToken;
+      const idToken = extractGoogleIdToken(signInResponse);
       if (!idToken) {
         Alert.alert('로그인 실패', 'Google ID 토큰을 가져오지 못했습니다. 다시 시도해주세요.');
         return;
@@ -72,12 +80,12 @@ export default function WelcomeScreen(_props: Props) {
         Alert.alert('로그인 실패', res.message || '다시 시도해주세요.');
       }
     } catch (error: unknown) {
-      if (isErrorWithCode(error)) {
-        if (error.code === statusCodes.IN_PROGRESS) {
+      if (isErrorWithCode?.(error)) {
+        if (error.code === statusCodes?.IN_PROGRESS) {
           return;
         }
 
-        if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        if (error.code === statusCodes?.PLAY_SERVICES_NOT_AVAILABLE) {
           Alert.alert('Google Play 서비스 필요', 'Google Play 서비스를 업데이트한 뒤 다시 시도해주세요.');
           return;
         }
