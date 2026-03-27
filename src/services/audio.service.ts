@@ -1,5 +1,4 @@
 import * as Speech from 'expo-speech';
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 
 interface SpeakOptions {
   language?: string;
@@ -11,7 +10,6 @@ interface SpeakOptions {
 }
 
 const DEFAULT_LANGUAGE = 'en-US';
-let audioModeInitialized = false;
 let availableVoices: Speech.Voice[] | null = null;
 
 const mapToSpeechLocale = (language?: string): string => {
@@ -52,20 +50,6 @@ export const audioService = {
     const content = text.trim();
     if (!content) return;
 
-    if (!audioModeInitialized) {
-      await Audio.setIsEnabledAsync(true);
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
-        playThroughEarpieceAndroid: false,
-      });
-      audioModeInitialized = true;
-    }
-
     await Speech.stop();
 
     const preferredVoice = await getPreferredVoice(options.language);
@@ -79,8 +63,18 @@ export const audioService = {
       volume: 1,
       onDone: options.onDone,
       onStopped: options.onStopped,
-      onError: (error) => {
-        options.onError?.(error);
+      onError: () => {
+        Speech.speak(content, {
+          language: locale,
+          rate: options.rate ?? 0.95,
+          pitch: options.pitch ?? 1,
+          volume: 1,
+          onDone: options.onDone,
+          onStopped: options.onStopped,
+          onError: (fallbackError) => {
+            options.onError?.(fallbackError);
+          },
+        });
       },
     });
   },
