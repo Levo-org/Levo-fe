@@ -1,4 +1,5 @@
 import * as Speech from 'expo-speech';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 
 interface SpeakOptions {
   language?: string;
@@ -10,6 +11,7 @@ interface SpeakOptions {
 }
 
 const DEFAULT_LANGUAGE = 'en-US';
+let audioModeInitialized = false;
 
 const mapToSpeechLocale = (language?: string): string => {
   if (!language) return DEFAULT_LANGUAGE;
@@ -26,12 +28,26 @@ export const audioService = {
     const content = text.trim();
     if (!content) return;
 
+    if (!audioModeInitialized) {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+        playThroughEarpieceAndroid: false,
+      });
+      audioModeInitialized = true;
+    }
+
     await Speech.stop();
 
     Speech.speak(content, {
       language: mapToSpeechLocale(options.language),
       rate: options.rate ?? 0.95,
       pitch: options.pitch ?? 1,
+      volume: 1,
       onDone: options.onDone,
       onStopped: options.onStopped,
       onError: (error) => {
