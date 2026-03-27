@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
@@ -25,7 +25,9 @@ export default function FlashcardScreen({ navigation, route }: Props) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [knownCount, setKnownCount] = useState(0);
   const [wrongWordIds, setWrongWordIds] = useState<string[]>([]);
+  const [pendingAnswers, setPendingAnswers] = useState<Array<{ wordId: string; correct: boolean }>>([]);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const flip = useSharedValue(0);
 
   const selectedChapter = route.params?.chapter;
@@ -47,6 +49,37 @@ export default function FlashcardScreen({ navigation, route }: Props) {
     [cards.length, currentIndex],
   );
   const card = cards[safeIndex] ?? null;
+
+  const persistAnswers = useCallback(
+    async (answers: Array<{ wordId: string; correct: boolean }>) => {
+      if (answers.length === 0) return true;
+
+      try {
+        await vocabularyService.submitFlashcardAnswers(answers);
+        setPendingAnswers([]);
+        return true;
+      } catch (err) {
+        console.warn('[FlashcardScreen] Failed to save flashcard answers:', err);
+        return false;
+      }
+    },
+    [],
+  );
+
+  const handleExit = useCallback(async () => {
+    if (isSaving || isCompleting) return;
+
+    setIsSaving(true);
+    const saved = await persistAnswers(pendingAnswers);
+    setIsSaving(false);
+
+    if (!saved) {
+      Alert.alert('저장 실패', '진행한 학습 결과를 저장하지 못했습니다. 네트워크를 확인하고 다시 시도해주세요.');
+      return;
+    }
+
+    navigation.goBack();
+  }, [isSaving, isCompleting, pendingAnswers, persistAnswers, navigation]);
 
   useEffect(() => {
     if (!loading && cards.length > 0 && currentIndex >= cards.length && !isCompleting) {
@@ -76,12 +109,9 @@ export default function FlashcardScreen({ navigation, route }: Props) {
 
   const handleAnswer = useCallback(async (known: boolean) => {
     if (!card || isCompleting) return;
-    // Record answer via API
-    try {
-      await vocabularyService.answerFlashcard(card._id, known);
-    } catch (err) {
-      console.warn('[FlashcardScreen] Failed to record flashcard answer:', err);
-    }
+
+    const nextPendingAnswers = [...pendingAnswers, { wordId: card._id, correct: known }];
+    setPendingAnswers(nextPendingAnswers);
 
     if (known) setKnownCount((c) => c + 1);
     const nextWrongWordIds = known
@@ -98,6 +128,14 @@ export default function FlashcardScreen({ navigation, route }: Props) {
       setIsFlipped(false);
     } else {
       setIsCompleting(true);
+
+      const saved = await persistAnswers(nextPendingAnswers);
+      if (!saved) {
+        setIsCompleting(false);
+        Alert.alert('저장 실패', '학습 완료 저장에 실패했습니다. 다시 시도해주세요.');
+        return;
+      }
+
       navigation.replace('FlashcardComplete', {
         totalCards: cards.length,
         knownCards: known ? knownCount + 1 : knownCount,
@@ -105,9 +143,9 @@ export default function FlashcardScreen({ navigation, route }: Props) {
         chapter: selectedChapter,
       });
     }
-  }, [knownCount, navigation, flip, card, cards.length, safeIndex, isCompleting, wrongWordIds, selectedChapter]);
+  }, [knownCount, navigation, flip, card, cards.length, safeIndex, isCompleting, wrongWordIds, selectedChapter, pendingAnswers, persistAnswers]);
 
-  if (loading || isCompleting) {
+  if (loading || isCompleting || isSaving) {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" color={colors.primary.main} />
@@ -130,7 +168,7 @@ export default function FlashcardScreen({ navigation, route }: Props) {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
+        <TouchableOpacity onPress={handleExit} activeOpacity={0.7}>
           <Feather name="x" size={24} color={colors.text.secondary} />
         </TouchableOpacity>
         <View style={styles.progressWrapper}>

@@ -210,4 +210,16 @@ export const vocabularyService = {
         })(),
       },
     ),
+
+  submitFlashcardAnswers: (answers: Array<{ wordId: string; correct: boolean }>) =>
+    api.post<ApiResponse<{ processed: number; correctCount: number }>>(
+      '/vocabulary/flashcards/answers',
+      { answers },
+      {
+        params: (() => {
+          const { targetLanguage } = resolveUserFilters();
+          return targetLanguage ? { targetLanguage } : undefined;
+        })(),
+      },
+    ),
 };
