@@ -2,8 +2,8 @@ import api from './api';
 import type { ApiResponse, GrammarTopic } from '../types';
 
 export const grammarService = {
-  getTopics: (level?: string) =>
-    api.get<ApiResponse<GrammarTopic[]>>('/grammar', { params: { level } }),
+  getTopics: (params?: { level?: string; targetLanguage?: string }) =>
+    api.get<ApiResponse<GrammarTopic[]>>('/grammar', { params }),
 
   getDetail: (id: string) =>
     api.get<ApiResponse<any>>(`/grammar/${id}`),

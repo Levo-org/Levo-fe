@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import type { RootStackParamList } from '../../types';
 import { userService } from '../../services/user.service';
 import { useApi } from '../../hooks/useApi';
 import { useUserStore } from '../../stores/userStore';
+import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -36,12 +37,59 @@ interface ProfileData {
 export default function ProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { hearts, streak, coins, xp, userLevel } = useUserStore();
+  const authUser = useAuthStore((state) => state.user);
+  const authLanguageProfile = useAuthStore((state) => state.languageProfile);
+  const setUser = useAuthStore((state) => state.setUser);
+  const setLanguageProfile = useAuthStore((state) => state.setLanguageProfile);
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [selectedLevel, setSelectedLevel] = useState('beginner');
+  const [savingLearningPref, setSavingLearningPref] = useState(false);
 
   const fetcher = useCallback(() => userService.getMe(), []);
-  const { data, loading } = useApi<ProfileData>(fetcher);
+  const { data, loading, refetch } = useApi<ProfileData>(fetcher);
 
   const user = data?.user;
   const profile = data?.languageProfile;
+
+  const currentLanguage = profile?.targetLanguage || authUser?.activeLanguage || 'en';
+  const currentLevel = profile?.level || authLanguageProfile?.level || 'beginner';
+
+  useEffect(() => {
+    setSelectedLanguage(currentLanguage);
+  }, [currentLanguage]);
+
+  useEffect(() => {
+    setSelectedLevel(currentLevel);
+  }, [currentLevel]);
+
+  const hasLearningPrefChanges = useMemo(
+    () => selectedLanguage !== currentLanguage || selectedLevel !== currentLevel,
+    [selectedLanguage, currentLanguage, selectedLevel, currentLevel],
+  );
+
+  const handleSaveLearningPreferences = useCallback(async () => {
+    if (!hasLearningPrefChanges || savingLearningPref) return;
+
+    setSavingLearningPref(true);
+    try {
+      const response = await userService.updateLearningPreferences({
+        targetLanguage: selectedLanguage,
+        level: selectedLevel,
+      });
+
+      const payload = response.data?.data;
+      if (payload?.user) {
+        setUser(payload.user);
+      }
+      if (payload?.languageProfile) {
+        setLanguageProfile(payload.languageProfile);
+      }
+
+      await refetch();
+    } finally {
+      setSavingLearningPref(false);
+    }
+  }, [hasLearningPrefChanges, savingLearningPref, selectedLanguage, selectedLevel, setUser, setLanguageProfile, refetch]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -135,6 +183,60 @@ export default function ProfileScreen({ navigation }: Props) {
               <Text style={styles.langTitle}>학습 중인 언어</Text>
               <Text style={styles.langValue}>{profile.targetLanguage} · {profile.level}</Text>
               <Text style={styles.langMeta}>단어 {profile.wordsLearned ?? 0}개 학습</Text>
+
+              <View style={styles.selectorGroup}>
+                <Text style={styles.selectorLabel}>언어 변경</Text>
+                <View style={styles.selectorRow}>
+                  {[
+                    { value: 'en', label: '영어' },
+                    { value: 'ja', label: '일본어' },
+                    { value: 'zh', label: '중국어' },
+                  ].map((lang) => (
+                    <TouchableOpacity
+                      key={lang.value}
+                      style={[styles.optionChip, selectedLanguage === lang.value && styles.optionChipActive]}
+                      onPress={() => setSelectedLanguage(lang.value)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.optionChipText, selectedLanguage === lang.value && styles.optionChipTextActive]}>{lang.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.selectorGroup}>
+                <Text style={styles.selectorLabel}>난이도 변경</Text>
+                <View style={styles.selectorRowWrap}>
+                  {[
+                    { value: 'beginner', label: '완전 초보' },
+                    { value: 'elementary', label: '기초' },
+                    { value: 'intermediate', label: '중급' },
+                    { value: 'advanced', label: '고급' },
+                  ].map((lvl) => (
+                    <TouchableOpacity
+                      key={lvl.value}
+                      style={[styles.optionChip, selectedLevel === lvl.value && styles.optionChipActive]}
+                      onPress={() => setSelectedLevel(lvl.value)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.optionChipText, selectedLevel === lvl.value && styles.optionChipTextActive]}>{lvl.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveButton, (!hasLearningPrefChanges || savingLearningPref) && styles.saveButtonDisabled]}
+                onPress={handleSaveLearningPreferences}
+                activeOpacity={0.8}
+                disabled={!hasLearningPrefChanges || savingLearningPref}
+              >
+                {savingLearningPref ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>언어/난이도 저장</Text>
+                )}
+              </TouchableOpacity>
             </Animated.View>
           )}
         </ScrollView>
@@ -170,4 +272,15 @@ const styles = StyleSheet.create({
   langTitle: { ...typography.small, color: colors.text.secondary, marginBottom: 4 },
   langValue: { ...typography.h4, color: colors.text.primary, marginBottom: 4 },
   langMeta: { ...typography.small, color: colors.text.tertiary },
+  selectorGroup: { marginTop: 16 },
+  selectorLabel: { ...typography.caption, color: colors.text.secondary, marginBottom: 8 },
+  selectorRow: { flexDirection: 'row', gap: 8 },
+  selectorRowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  optionChip: { backgroundColor: colors.background.tertiary, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999 },
+  optionChipActive: { backgroundColor: colors.primary.main },
+  optionChipText: { ...typography.small, color: colors.text.secondary, fontWeight: '600' },
+  optionChipTextActive: { color: '#FFFFFF' },
+  saveButton: { marginTop: 18, backgroundColor: colors.primary.main, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  saveButtonDisabled: { backgroundColor: colors.background.tertiary },
+  saveButtonText: { ...typography.button, color: '#FFFFFF' },
 });

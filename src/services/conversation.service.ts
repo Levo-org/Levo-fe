@@ -3,14 +3,14 @@ import type { ApiResponse, ConversationSituation, ConversationDetail } from '../
 
 const PAGE_SIZE = 100;
 
-const fetchAllSituations = async (): Promise<ApiResponse<ConversationSituation[]>> => {
+const fetchAllSituations = async (params?: { targetLanguage?: string; level?: string }): Promise<ApiResponse<ConversationSituation[]>> => {
   const items: ConversationSituation[] = [];
   let page = 1;
   let totalPages = 1;
 
   while (page <= totalPages) {
     const response = await api.get<ApiResponse<ConversationSituation[]>>('/conversations', {
-      params: { page, limit: PAGE_SIZE },
+      params: { page, limit: PAGE_SIZE, ...params },
     });
 
     if (!response.data.success) {
@@ -29,8 +29,8 @@ const fetchAllSituations = async (): Promise<ApiResponse<ConversationSituation[]
 };
 
 export const conversationService = {
-  getSituations: async () => ({
-    data: await fetchAllSituations(),
+  getSituations: async (params?: { targetLanguage?: string; level?: string }) => ({
+    data: await fetchAllSituations(params),
   }),
 
   getDetail: (id: string) =>

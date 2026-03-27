@@ -3,14 +3,14 @@ import type { ApiResponse, ReadingPracticePassage } from '../types';
 
 const PAGE_SIZE = 100;
 
-const fetchAllPassages = async (): Promise<ApiResponse<ReadingPracticePassage[]>> => {
+const fetchAllPassages = async (params?: { targetLanguage?: string; difficulty?: string }): Promise<ApiResponse<ReadingPracticePassage[]>> => {
   const items: ReadingPracticePassage[] = [];
   let page = 1;
   let totalPages = 1;
 
   while (page <= totalPages) {
     const response = await api.get<ApiResponse<ReadingPracticePassage[]>>('/reading', {
-      params: { page, limit: PAGE_SIZE },
+      params: { page, limit: PAGE_SIZE, ...params },
     });
 
     if (!response.data.success) {
@@ -29,8 +29,8 @@ const fetchAllPassages = async (): Promise<ApiResponse<ReadingPracticePassage[]>
 };
 
 export const readingService = {
-  getPassages: async () => ({
-    data: await fetchAllPassages(),
+  getPassages: async (params?: { targetLanguage?: string; difficulty?: string }) => ({
+    data: await fetchAllPassages(params),
   }),
 
   getDetail: (id: string) =>

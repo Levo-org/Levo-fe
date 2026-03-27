@@ -3,12 +3,13 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList, ConversationSituation } from '../../types';
 import BackButton from '../../components/BackButton';
 import { conversationService } from '../../services/conversation.service';
 import { useApi } from '../../hooks/useApi';
+import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -27,9 +28,20 @@ const difficultyColors: Record<string, string> = {
 export default function ConversationScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
+  const activeLanguage = useAuthStore((state) => state.user?.activeLanguage);
+  const level = useAuthStore((state) => state.languageProfile?.level);
 
-  const fetcher = useCallback(() => conversationService.getSituations(), []);
-  const { data: situations, loading } = useApi<ConversationSituation[]>(fetcher);
+  const fetcher = useCallback(
+    () => conversationService.getSituations({ targetLanguage: activeLanguage, level }),
+    [activeLanguage, level],
+  );
+  const { data: situations, loading, refetch } = useApi<ConversationSituation[]>(fetcher);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
 
   return (
     <View style={styles.container}>

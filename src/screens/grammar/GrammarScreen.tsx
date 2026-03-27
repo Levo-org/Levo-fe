@@ -10,6 +10,7 @@ import BackButton from '../../components/BackButton';
 import ProgressIndicator from '../../components/ProgressIndicator';
 import { grammarService } from '../../services/grammar.service';
 import { useApi } from '../../hooks/useApi';
+import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -29,8 +30,13 @@ const levelColors: Record<string, string> = {
 export default function GrammarScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
+  const activeLanguage = useAuthStore((state) => state.user?.activeLanguage);
+  const level = useAuthStore((state) => state.languageProfile?.level);
 
-  const fetcher = useCallback(() => grammarService.getTopics(), []);
+  const fetcher = useCallback(
+    () => grammarService.getTopics({ targetLanguage: activeLanguage, level }),
+    [activeLanguage, level],
+  );
   const { data: topics, loading, refetch } = useApi<GrammarTopic[]>(fetcher);
 
   useFocusEffect(

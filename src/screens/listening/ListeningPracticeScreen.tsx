@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList, ListeningPracticeItem } from '../../types';
 import BackButton from '../../components/BackButton';
@@ -40,9 +41,13 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
     (state) => state.user?.activeLanguage ?? state.languageProfile?.targetLanguage ?? 'en',
   );
   const initializedWithRouteParam = useRef(false);
+  const level = useAuthStore((state) => state.languageProfile?.level);
 
-  const fetcher = useCallback(() => listeningService.getProblems(), []);
-  const { data: problems, loading } = useApi<ListeningPracticeItem[]>(fetcher);
+  const fetcher = useCallback(
+    () => listeningService.getProblems({ targetLanguage: activeLanguage, difficulty: level }),
+    [activeLanguage, level],
+  );
+  const { data: problems, loading, refetch } = useApi<ListeningPracticeItem[]>(fetcher);
 
   const allProblems = problems ?? [];
   const problem = allProblems[currentIndex];
@@ -59,6 +64,12 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
       audioService.stop().catch(() => undefined);
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
 
   useEffect(() => {
     if (initializedWithRouteParam.current) return;
@@ -95,7 +106,7 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
     } catch {
       setIsPlaying(false);
     }
-  }, [isPlaying, problem]);
+  }, [isPlaying, problem, activeLanguage]);
 
   const handleSelect = useCallback(async (index: number) => {
     if (answered || !problem) return;

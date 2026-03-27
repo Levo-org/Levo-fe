@@ -3,12 +3,14 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList, ReadingPracticePassage } from '../../types';
 import BackButton from '../../components/BackButton';
 import QuizOption from '../../components/QuizOption';
 import { readingService } from '../../services/reading.service';
 import { useApi } from '../../hooks/useApi';
+import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -26,9 +28,14 @@ export default function ReadingPracticeScreen({ navigation, route }: Props) {
   const [selectedPassageIdx, setSelectedPassageIdx] = useState(0);
   const [serverCorrectIdx, setServerCorrectIdx] = useState<number | null>(null);
   const initializedWithRouteParam = useRef(false);
+  const activeLanguage = useAuthStore((state) => state.user?.activeLanguage);
+  const level = useAuthStore((state) => state.languageProfile?.level);
 
-  const fetcher = useCallback(() => readingService.getPassages(), []);
-  const { data: passages, loading } = useApi<ReadingPracticePassage[]>(fetcher);
+  const fetcher = useCallback(
+    () => readingService.getPassages({ targetLanguage: activeLanguage, difficulty: level }),
+    [activeLanguage, level],
+  );
+  const { data: passages, loading, refetch } = useApi<ReadingPracticePassage[]>(fetcher);
 
   const allPassages = passages ?? [];
   const passage = allPassages[selectedPassageIdx];
@@ -49,6 +56,12 @@ export default function ReadingPracticeScreen({ navigation, route }: Props) {
     }
     initializedWithRouteParam.current = true;
   }, [allPassages, requestedPassageId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
 
   const handleSelect = useCallback(async (index: number) => {
     if (answered || !passage || !question) return;

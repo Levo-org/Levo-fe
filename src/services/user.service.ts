@@ -13,4 +13,7 @@ export const userService = {
 
   changeLanguage: (targetLanguage: string) =>
     api.patch<ApiResponse<{ activeLanguage: string; languageProfile: LanguageProfile; isNew: boolean }>>('/users/me/language', { targetLanguage }),
+
+  updateLearningPreferences: (data: { targetLanguage: string; level: string }) =>
+    api.patch<ApiResponse<{ user: User; languageProfile: LanguageProfile }>>('/users/me/learning', data),
 };
