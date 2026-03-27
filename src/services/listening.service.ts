@@ -1,36 +1,33 @@
 import api from './api';
 import type { ApiResponse, ListeningPracticeItem } from '../types';
 
-const PAGE_SIZE = 100;
+const PRACTICE_BATCH_SIZE = 20;
+const REQUEST_TIMEOUT_MS = 15000;
 
-const fetchAllProblems = async (): Promise<ApiResponse<ListeningPracticeItem[]>> => {
-  const items: ListeningPracticeItem[] = [];
-  let page = 1;
-  let totalPages = 1;
+const fetchPracticeProblems = async (): Promise<ApiResponse<ListeningPracticeItem[]>> => {
+  const practiceData = await api
+    .get<ApiResponse<ListeningPracticeItem[]>>('/listening/practice', {
+      params: { limit: PRACTICE_BATCH_SIZE },
+      timeout: REQUEST_TIMEOUT_MS,
+    })
+    .then((response) => (response.data?.success ? response.data : null))
+    .catch(() => null);
 
-  while (page <= totalPages) {
-    const response = await api.get<ApiResponse<ListeningPracticeItem[]>>('/listening', {
-      params: { page, limit: PAGE_SIZE },
-    });
-
-    if (!response.data.success) {
-      return response.data;
-    }
-
-    items.push(...response.data.data);
-    totalPages = response.data.pagination?.totalPages ?? 1;
-    page += 1;
+  if (practiceData) {
+    return practiceData;
   }
 
-  return {
-    success: true,
-    data: items,
-  };
+  const fallback = await api.get<ApiResponse<ListeningPracticeItem[]>>('/listening', {
+    params: { page: 1, limit: PRACTICE_BATCH_SIZE },
+    timeout: REQUEST_TIMEOUT_MS,
+  });
+
+  return fallback.data;
 };
 
 export const listeningService = {
   getProblems: async () => ({
-    data: await fetchAllProblems(),
+    data: await fetchPracticeProblems(),
   }),
 
   answerProblem: (id: string, answer: string) =>
