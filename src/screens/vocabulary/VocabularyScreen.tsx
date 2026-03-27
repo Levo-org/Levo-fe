@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList, Word } from '../../types';
 import BackButton from '../../components/BackButton';
@@ -37,16 +37,26 @@ export default function VocabularyScreen() {
   const [isChapterModalVisible, setIsChapterModalVisible] = useState(false);
 
   const fetcher = useCallback(
-    () => vocabularyService.getWords({ status: TAB_STATUS[activeTab], chapter: activeChapter ?? undefined }),
-    [activeTab, activeChapter],
+    () => vocabularyService.getWords({ status: TAB_STATUS[activeTab] }),
+    [activeTab],
   );
   const { data, loading, refetch } = useApi<VocabData>(fetcher);
 
   React.useEffect(() => {
     refetch();
-  }, [activeTab, activeChapter, refetch]);
+  }, [activeTab, refetch]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
 
   const words = data?.words ?? [];
+  const filteredWords = useMemo(
+    () => (activeChapter === null ? words : words.filter((word) => word.chapter === activeChapter)),
+    [words, activeChapter],
+  );
   const tabCounts = data?.tabs;
   const chapters = useMemo(
     () => Array.from(new Set(words.map((word) => word.chapter).filter((chapter) => chapter > 0))).sort((a, b) => a - b),
@@ -110,7 +120,7 @@ export default function VocabularyScreen() {
         </View>
       ) : (
         <FlatList
-          data={words}
+          data={filteredWords}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
