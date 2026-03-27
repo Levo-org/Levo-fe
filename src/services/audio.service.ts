@@ -45,6 +45,14 @@ const getPreferredVoice = async (language?: string): Promise<Speech.Voice | null
   return defaultVoice || voices[0] || null;
 };
 
+export interface SpeechDebugInfo {
+  requestedLocale: string;
+  voicesTotal: number;
+  matchedVoiceId: string | null;
+  matchedVoiceLanguage: string | null;
+  speakingNow: boolean;
+}
+
 export const audioService = {
   speak: async (text: string, options: SpeakOptions = {}): Promise<void> => {
     const content = text.trim();
@@ -96,4 +104,19 @@ export const audioService = {
   },
 
   isSpeaking: async (): Promise<boolean> => Speech.isSpeakingAsync(),
+
+  getSpeechDebugInfo: async (language?: string): Promise<SpeechDebugInfo> => {
+    const locale = mapToSpeechLocale(language);
+    const voices = await getVoices();
+    const preferredVoice = await getPreferredVoice(language);
+    const speakingNow = await Speech.isSpeakingAsync();
+
+    return {
+      requestedLocale: locale,
+      voicesTotal: voices.length,
+      matchedVoiceId: preferredVoice?.identifier || null,
+      matchedVoiceLanguage: preferredVoice?.language || null,
+      speakingNow,
+    };
+  },
 };

@@ -38,6 +38,8 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
   const [correctCount, setCorrectCount] = useState(0);
   const [serverCorrectIdx, setServerCorrectIdx] = useState<number | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [isTestingTts, setIsTestingTts] = useState(false);
+  const [ttsDebugMessage, setTtsDebugMessage] = useState<string | null>(null);
   const activeLanguage = useAuthStore(
     (state) => state.user?.activeLanguage ?? state.languageProfile?.targetLanguage ?? 'en',
   );
@@ -108,6 +110,24 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
       setIsPlaying(false);
     }
   }, [isPlaying, problem, activeLanguage]);
+
+  const handleRunTtsDiagnostic = useCallback(async () => {
+    setIsTestingTts(true);
+    try {
+      const debug = await audioService.getSpeechDebugInfo(activeLanguage);
+      await audioService.speak('This is a TTS diagnostic sentence.', {
+        language: activeLanguage,
+      });
+
+      setTtsDebugMessage(
+        `voices=${debug.voicesTotal}, locale=${debug.requestedLocale}, voice=${debug.matchedVoiceLanguage || 'none'} (${debug.matchedVoiceId || 'none'})`,
+      );
+    } catch (err) {
+      setTtsDebugMessage(`TTS diagnostic failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+    } finally {
+      setIsTestingTts(false);
+    }
+  }, [activeLanguage]);
 
   const handleSelect = useCallback(async (index: number) => {
     if (answered || !problem) return;
@@ -205,6 +225,15 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
           >
             <Text style={styles.transcriptButtonText}>{showTranscript ? '예문 텍스트 숨기기' : '예문 텍스트 보기'}</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.diagnosticButton}
+            onPress={handleRunTtsDiagnostic}
+            activeOpacity={0.8}
+            disabled={isTestingTts}
+          >
+            <Text style={styles.diagnosticButtonText}>{isTestingTts ? 'TTS 진단 중...' : 'TTS 진단 재생'}</Text>
+          </TouchableOpacity>
+          {ttsDebugMessage ? <Text style={styles.diagnosticMessage}>{ttsDebugMessage}</Text> : null}
           {showTranscript && (
             <View style={styles.transcriptBox}>
               <Text style={styles.transcriptText}>{problem.ttsText}</Text>
@@ -253,6 +282,9 @@ const styles = StyleSheet.create({
   waveBar: { width: 3, borderRadius: 2, backgroundColor: '#FF9600' },
   transcriptButton: { marginTop: 4, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#EDF7FF' },
   transcriptButtonText: { ...typography.small, color: '#1CB0F6', fontWeight: '700' },
+  diagnosticButton: { marginTop: 2, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#FFF4E6' },
+  diagnosticButtonText: { ...typography.small, color: '#FF9600', fontWeight: '700' },
+  diagnosticMessage: { ...typography.caption, color: colors.text.secondary, textAlign: 'center' },
   transcriptBox: { width: '100%', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB' },
   transcriptText: { ...typography.body, color: '#4B4B4B', textAlign: 'center' },
   question: { fontSize: 20, fontWeight: '700', color: '#4B4B4B', marginBottom: 20 },
