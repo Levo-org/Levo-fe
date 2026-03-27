@@ -37,6 +37,7 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
   const [answered, setAnswered] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [serverCorrectIdx, setServerCorrectIdx] = useState<number | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
   const activeLanguage = useAuthStore(
     (state) => state.user?.activeLanguage ?? state.languageProfile?.targetLanguage ?? 'en',
   );
@@ -137,6 +138,7 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
       setAnswered(false);
       setIsPlaying(false);
       setServerCorrectIdx(null);
+      setShowTranscript(false);
     } else {
       navigation.goBack();
     }
@@ -196,6 +198,18 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
               <View key={i} style={[styles.waveBar, { height: Math.random() * 20 + 8, opacity: isPlaying ? 1 : 0.3 }]} />
             ))}
           </View>
+          <TouchableOpacity
+            style={styles.transcriptButton}
+            onPress={() => setShowTranscript((prev) => !prev)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.transcriptButtonText}>{showTranscript ? '예문 텍스트 숨기기' : '예문 텍스트 보기'}</Text>
+          </TouchableOpacity>
+          {showTranscript && (
+            <View style={styles.transcriptBox}>
+              <Text style={styles.transcriptText}>{problem.ttsText}</Text>
+            </View>
+          )}
         </Animated.View>
 
         <Text style={styles.question}>{problem.question}</Text>
@@ -237,6 +251,10 @@ const styles = StyleSheet.create({
   audioHint: { fontSize: 13, color: '#AFAFAF' },
   waveform: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 30 },
   waveBar: { width: 3, borderRadius: 2, backgroundColor: '#FF9600' },
+  transcriptButton: { marginTop: 4, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#EDF7FF' },
+  transcriptButtonText: { ...typography.small, color: '#1CB0F6', fontWeight: '700' },
+  transcriptBox: { width: '100%', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  transcriptText: { ...typography.body, color: '#4B4B4B', textAlign: 'center' },
   question: { fontSize: 20, fontWeight: '700', color: '#4B4B4B', marginBottom: 20 },
   options: { gap: 12 },
   footer: { paddingHorizontal: 24, paddingBottom: 48, paddingTop: 12 },
