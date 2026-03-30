@@ -7,7 +7,9 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList, FlashcardWord } from '../../types';
 import ProgressIndicator from '../../components/ProgressIndicator';
 import { vocabularyService } from '../../services/vocabulary.service';
+import { audioService } from '../../services/audio.service';
 import { useApi } from '../../hooks/useApi';
+import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -28,7 +30,9 @@ export default function FlashcardScreen({ navigation, route }: Props) {
   const [pendingAnswers, setPendingAnswers] = useState<Array<{ wordId: string; correct: boolean }>>([]);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPronouncing, setIsPronouncing] = useState(false);
   const flip = useSharedValue(0);
+  const activeLanguage = useAuthStore((state) => state.user?.activeLanguage ?? state.languageProfile?.targetLanguage ?? 'en');
 
   const selectedChapter = route.params?.chapter;
   const retryWordIds = route.params?.wordIds;
@@ -92,6 +96,12 @@ export default function FlashcardScreen({ navigation, route }: Props) {
     }
   }, [loading, cards.length, currentIndex, knownCount, navigation, isCompleting, wrongWordIds, selectedChapter]);
 
+  useEffect(() => {
+    return () => {
+      audioService.stop().catch(() => undefined);
+    };
+  }, []);
+
   const frontStyle = useAnimatedStyle(() => ({
     transform: [{ rotateY: `${interpolate(flip.value, [0, 1], [0, 180])}deg` }],
     backfaceVisibility: 'hidden',
@@ -107,8 +117,36 @@ export default function FlashcardScreen({ navigation, route }: Props) {
     setIsFlipped(!isFlipped);
   };
 
+  const handlePlayPronunciation = useCallback(async () => {
+    if (!card) return;
+
+    if (isPronouncing) {
+      await audioService.stop();
+      setIsPronouncing(false);
+      return;
+    }
+
+    setIsPronouncing(true);
+    try {
+      await audioService.speak(card.word, {
+        language: activeLanguage,
+        rate: 0.9,
+        onDone: () => setIsPronouncing(false),
+        onStopped: () => setIsPronouncing(false),
+        onError: () => setIsPronouncing(false),
+      });
+    } catch {
+      setIsPronouncing(false);
+    }
+  }, [card, isPronouncing, activeLanguage]);
+
   const handleAnswer = useCallback(async (known: boolean) => {
     if (!card || isCompleting) return;
+
+    if (isPronouncing) {
+      await audioService.stop();
+      setIsPronouncing(false);
+    }
 
     const nextPendingAnswers = [...pendingAnswers, { wordId: card._id, correct: known }];
     setPendingAnswers(nextPendingAnswers);
@@ -143,7 +181,7 @@ export default function FlashcardScreen({ navigation, route }: Props) {
         chapter: selectedChapter,
       });
     }
-  }, [knownCount, navigation, flip, card, cards.length, safeIndex, isCompleting, wrongWordIds, selectedChapter, pendingAnswers, persistAnswers]);
+  }, [knownCount, navigation, flip, card, cards.length, safeIndex, isCompleting, wrongWordIds, selectedChapter, pendingAnswers, persistAnswers, isPronouncing]);
 
   if (loading || isCompleting || isSaving) {
     return (
@@ -180,10 +218,16 @@ export default function FlashcardScreen({ navigation, route }: Props) {
       <View style={styles.cardArea}>
         <TouchableOpacity onPress={toggleFlip} activeOpacity={0.95} style={styles.cardWrapper}>
           <Animated.View style={[styles.card, frontStyle]}>
+            <TouchableOpacity style={styles.pronounceButton} onPress={handlePlayPronunciation} activeOpacity={0.8}>
+              <Feather name={isPronouncing ? 'pause-circle' : 'volume-2'} size={24} color={colors.primary.main} />
+            </TouchableOpacity>
             <Text style={styles.cardWord}>{card.word}</Text>
             <Text style={styles.tapHint}>탭하여 뒤집기</Text>
           </Animated.View>
           <Animated.View style={[styles.card, styles.cardBack, backStyle]}>
+            <TouchableOpacity style={styles.pronounceButtonBack} onPress={handlePlayPronunciation} activeOpacity={0.8}>
+              <Feather name={isPronouncing ? 'pause-circle' : 'volume-2'} size={24} color="#FFFFFF" />
+            </TouchableOpacity>
             <Text style={styles.cardMeaning}>{card.meaning}</Text>
             <Text style={styles.cardPronunciation}>{card.pronunciation}</Text>
             <View style={styles.exampleBox}>
@@ -225,6 +269,8 @@ const styles = StyleSheet.create({
   cardArea: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   cardWrapper: { width: width - 48, height: 320 },
   card: { position: 'absolute', width: '100%', height: '100%', backgroundColor: colors.background.secondary, borderRadius: 24, justifyContent: 'center', alignItems: 'center', padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
+  pronounceButton: { position: 'absolute', top: 16, right: 16 },
+  pronounceButtonBack: { position: 'absolute', top: 16, right: 16 },
   cardBack: { backgroundColor: colors.primary.main },
   cardWord: { fontSize: 32, fontWeight: '800', color: colors.text.primary, marginBottom: 12 },
   tapHint: { ...typography.small, color: colors.text.secondary },
