@@ -38,7 +38,25 @@ export default function ReviewScreen({ navigation }: Props) {
   const fetcher = useCallback(() => reviewService.getDashboard(), []);
   const { data, loading, refetch } = useApi<ReviewDashboard>(fetcher);
 
-  const categories = data?.categories ?? [];
+  const categoryCountMap = new Map<string, { count: number; lastReview?: string }>();
+  (data?.categories ?? []).forEach((cat) => {
+    const key = cat.category ?? cat.id ?? cat.name ?? '';
+    if (!key) return;
+    categoryCountMap.set(key, {
+      count: cat.count || 0,
+      lastReview: cat.lastReview,
+    });
+  });
+
+  const categories = Object.entries(CATEGORY_META).map(([key, meta]) => {
+    const source = categoryCountMap.get(key);
+    return {
+      key,
+      meta,
+      count: source?.count ?? 0,
+      lastReview: source?.lastReview,
+    };
+  });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -62,26 +80,19 @@ export default function ReviewScreen({ navigation }: Props) {
 
           {/* Categories */}
           <Text style={styles.sectionTitle}>카테고리별 복습</Text>
-          {categories.length > 0 ? categories.map((cat, idx) => {
-            const key = cat.category ?? cat.id ?? cat.name ?? '';
-            const meta = CATEGORY_META[key] ?? {
-              emoji: '📋',
-              title: cat.category,
-              screen: 'VocabularyReview',
-              color: colors.primary.main,
-            };
+          {categories.map((cat, idx) => {
             return (
-              <Animated.View entering={FadeInDown.delay(idx * 80).duration(400)} key={key}>
+              <Animated.View entering={FadeInDown.delay(idx * 80).duration(400)} key={cat.key}>
                 <TouchableOpacity
                   style={styles.categoryCard}
-                  onPress={() => navigation.navigate(meta.screen as any, { category: key })}
+                  onPress={() => navigation.navigate(cat.meta.screen as any, { category: cat.key })}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.categoryIcon, { backgroundColor: meta.color + '20' }]}>
-                    <Text style={styles.categoryEmoji}>{meta.emoji}</Text>
+                  <View style={[styles.categoryIcon, { backgroundColor: cat.meta.color + '20' }]}> 
+                    <Text style={styles.categoryEmoji}>{cat.meta.emoji}</Text>
                   </View>
                   <View style={styles.categoryInfo}>
-                    <Text style={styles.categoryTitle}>{meta.title}</Text>
+                    <Text style={styles.categoryTitle}>{cat.meta.title}</Text>
                     <Text style={styles.categoryMeta}>
                       {cat.count}개 · {cat.lastReview ? `마지막: ${cat.lastReview}` : '아직 없음'}
                     </Text>
@@ -90,27 +101,7 @@ export default function ReviewScreen({ navigation }: Props) {
                 </TouchableOpacity>
               </Animated.View>
             );
-          }) : (
-            /* Fallback: show all categories */
-            Object.entries(CATEGORY_META).map(([key, meta], idx) => (
-              <Animated.View entering={FadeInDown.delay(idx * 80).duration(400)} key={key}>
-                <TouchableOpacity
-                  style={styles.categoryCard}
-                  onPress={() => navigation.navigate(meta.screen as any, { category: key })}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.categoryIcon, { backgroundColor: meta.color + '20' }]}>
-                    <Text style={styles.categoryEmoji}>{meta.emoji}</Text>
-                  </View>
-                  <View style={styles.categoryInfo}>
-                    <Text style={styles.categoryTitle}>{meta.title}</Text>
-                    <Text style={styles.categoryMeta}>0개</Text>
-                  </View>
-                  <Feather name="chevron-right" size={20} color={colors.text.tertiary} />
-                </TouchableOpacity>
-              </Animated.View>
-            ))
-          )}
+          })}
         </ScrollView>
       )}
     </View>
