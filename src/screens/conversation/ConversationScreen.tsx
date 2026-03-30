@@ -68,8 +68,15 @@ export default function ConversationScreen() {
                 <View style={styles.cardContent}>
                   <View style={styles.cardTop}>
                     <Text style={styles.cardTitle}>{sit.title}</Text>
-                    {sit.completed && <Feather name="check-circle" size={18} color={colors.primary.main} />}
-                    {sit.locked && <Feather name="lock" size={16} color={colors.text.secondary} />}
+                    <View style={styles.cardStatusGroup}>
+                      {sit.completed && (
+                        <View style={styles.completedBadge}>
+                          <Feather name="check-circle" size={14} color={colors.primary.main} />
+                          <Text style={styles.completedBadgeText}>완료</Text>
+                        </View>
+                      )}
+                      {sit.locked && <Feather name="lock" size={16} color={colors.text.secondary} />}
+                    </View>
                   </View>
                   <View style={[styles.diffBadge, { backgroundColor: (difficultyColors[sit.level] || colors.accent.blue) + '15' }]}>
                     <Text style={[styles.diffText, { color: difficultyColors[sit.level] || colors.accent.blue }]}>{sit.level}</Text>
@@ -98,7 +105,22 @@ const styles = StyleSheet.create({
   cardEmoji: { fontSize: 40 },
   cardContent: { flex: 1 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardStatusGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardTitle: { ...typography.body, fontWeight: '700', color: colors.text.primary },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: '#E8F7E0',
+  },
+  completedBadgeText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.primary.main,
+  },
   diffBadge: { alignSelf: 'flex-start', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 6, marginTop: 6 },
   diffText: { ...typography.caption, fontWeight: '700' },
 });

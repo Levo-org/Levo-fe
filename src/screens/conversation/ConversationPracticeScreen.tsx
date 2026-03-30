@@ -66,6 +66,8 @@ export default function ConversationPracticeScreen({ navigation, route }: Props)
   const [userSpeakingRole, setUserSpeakingRole] = useState<'A' | 'B' | null>(null);
   const [finished, setFinished] = useState(false);
   const [practicing, setPracticing] = useState(false);
+  const [isSubmittingCompletion, setIsSubmittingCompletion] = useState(false);
+  const [completionError, setCompletionError] = useState('');
   const practiceTokenRef = useRef(0);
 
   const dialogs = useMemo(() => data?.dialogs ?? [], [data]);
@@ -117,6 +119,7 @@ export default function ConversationPracticeScreen({ navigation, route }: Props)
 
     setPracticing(true);
     setFinished(false);
+    setCompletionError('');
     setCurrentPairIndex(0);
     setCurrentCycle(1);
 
@@ -174,6 +177,18 @@ export default function ConversationPracticeScreen({ navigation, route }: Props)
       }
 
       if (practiceTokenRef.current !== token) return;
+
+      setCurrentStepLabel('완료 처리 중...');
+      setIsSubmittingCompletion(true);
+      try {
+        await conversationService.submitPractice(situationId, 100);
+      } catch (err) {
+        setCompletionError('진행도 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        console.warn('[ConversationPracticeScreen] Failed to submit practice completion:', err);
+      } finally {
+        setIsSubmittingCompletion(false);
+      }
+
       setFinished(true);
     } finally {
       if (practiceTokenRef.current === token) {
@@ -211,6 +226,8 @@ export default function ConversationPracticeScreen({ navigation, route }: Props)
         <Text style={{ fontSize: 60, marginBottom: 16 }}>🎉</Text>
         <Text style={styles.finishTitle}>연습 완료!</Text>
         <Text style={styles.finishSubtitle}>A/B 턴 기반 따라 말하기를 3회 반복 완료했어요.</Text>
+        <Text style={styles.finishSubtitle}>완료된 회화 테마는 회화 목록에서 완료로 표시되며, 다시 연습도 가능합니다.</Text>
+        {!!completionError && <Text style={styles.errorText}>{completionError}</Text>}
 
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backBtnText}>돌아가기</Text>
@@ -251,6 +268,8 @@ export default function ConversationPracticeScreen({ navigation, route }: Props)
           <Text style={styles.practiceStatus}>반복 {Math.min(Math.max(currentCycle, 1), REPETITION_COUNT)} / {REPETITION_COUNT}</Text>
           <Text style={styles.practiceStatus}>{currentStepLabel}</Text>
           {countdownSec !== null && <Text style={styles.countdownText}>사용자 말하기 남은 시간: {countdownSec}초</Text>}
+          {isSubmittingCompletion && <Text style={styles.practiceStatus}>완료 진행도를 저장하고 있어요...</Text>}
+          {!!completionError && <Text style={styles.errorText}>{completionError}</Text>}
           <View style={{ height: 8 }} />
           <Text style={styles.practiceTipTitle}>학습 방식</Text>
           <Text style={styles.practiceTipText}>
@@ -350,6 +369,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   stopBtnText: { ...typography.small, color: colors.status.error, fontWeight: '700' },
+  errorText: { ...typography.small, color: colors.status.error, fontWeight: '600', marginTop: 4 },
   emptyText: { ...typography.body, color: colors.text.secondary, marginBottom: 16 },
   backBtn: { backgroundColor: colors.primary.main, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12, marginTop: 16 },
   backBtnText: { ...typography.button, color: '#FFF' },

@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  LayoutChangeEvent,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
@@ -22,6 +32,10 @@ export default function ConversationDialogScreen({ navigation, route }: Props) {
   const [isPlayingAll, setIsPlayingAll] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null);
   const playbackTokenRef = useRef(0);
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const lineLayoutsRef = useRef<Record<number, { y: number; height: number }>>({});
+  const scrollOffsetYRef = useRef(0);
+  const viewportHeightRef = useRef(0);
 
   const fetcher = useCallback(() => conversationService.getDetail(situationId), [situationId]);
   const { data, loading } = useApi<ConversationDetail>(fetcher);
@@ -47,6 +61,42 @@ export default function ConversationDialogScreen({ navigation, route }: Props) {
     return () => {
       audioService.stop().catch(() => undefined);
     };
+  }, []);
+
+  useEffect(() => {
+    if (!isPlayingAll || activeLineIndex === null) return;
+
+    const layout = lineLayoutsRef.current[activeLineIndex];
+    if (!layout || viewportHeightRef.current <= 0) return;
+
+    const currentTop = scrollOffsetYRef.current;
+    const currentBottom = currentTop + viewportHeightRef.current - 130;
+    const lineTop = layout.y;
+    const lineBottom = layout.y + layout.height;
+    const isVisible = lineTop >= currentTop + 8 && lineBottom <= currentBottom;
+
+    if (!isVisible) {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, lineTop - 20),
+        animated: true,
+      });
+    }
+  }, [activeLineIndex, isPlayingAll]);
+
+  const handleLineLayout = useCallback(
+    (index: number) => (event: LayoutChangeEvent) => {
+      const { y, height } = event.nativeEvent.layout;
+      lineLayoutsRef.current[index] = { y, height };
+    },
+    [],
+  );
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollOffsetYRef.current = event.nativeEvent.contentOffset.y;
+  }, []);
+
+  const handleScrollLayout = useCallback((event: LayoutChangeEvent) => {
+    viewportHeightRef.current = event.nativeEvent.layout.height;
   }, []);
 
   const playLine = useCallback(
@@ -151,7 +201,15 @@ export default function ConversationDialogScreen({ navigation, route }: Props) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onLayout={handleScrollLayout}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         <View style={styles.sceneBanner}>
           {detail?.description ? <Text style={styles.sceneTitle}>{detail.description}</Text> : null}
           <TouchableOpacity
@@ -171,6 +229,7 @@ export default function ConversationDialogScreen({ navigation, route }: Props) {
             key={index}
             entering={line.isUser ? FadeInRight.delay(index * 200).duration(400) : FadeInLeft.delay(index * 200).duration(400)}
             style={[styles.bubbleRow, line.isUser && styles.bubbleRowRight]}
+            onLayout={handleLineLayout(index)}
           >
             <View style={[styles.bubble, line.isUser ? styles.bubbleUser : styles.bubbleOther]}>
               <View style={styles.bubbleHeader}>
