@@ -208,10 +208,13 @@ export interface Badge {
   description: string;
   category: string;
   achieved: boolean;
-  earned: boolean;
+  earned?: boolean;
   achievedAt?: string;
   earnedAt?: string;
-  condition?: string;
+  condition?: {
+    type: string;
+    value: number;
+  };
 }
 
 export interface StreakData {

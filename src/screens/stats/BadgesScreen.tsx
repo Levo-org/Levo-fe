@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList, Badge } from '../../types';
 import BackButton from '../../components/BackButton';
@@ -19,25 +20,40 @@ interface BadgesData {
   badges: Badge[];
 }
 
-const CATEGORIES = ['전체', '학습', '스트릭', '퀴즈', '특별'];
+const CATEGORIES = [
+  { label: '전체', value: 'all' as const },
+  { label: '학습', value: 'learning' as const },
+  { label: '스트릭', value: 'streak' as const },
+  { label: '레벨', value: 'level' as const },
+  { label: '특별', value: 'special' as const },
+];
 
 export default function BadgesScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [selectedTab, setSelectedTab] = useState(0);
 
   const fetcher = useCallback(
-    () => badgeService.getBadges(selectedTab === 0 ? undefined : CATEGORIES[selectedTab]),
+    () => badgeService.getBadges(selectedTab === 0 ? undefined : CATEGORIES[selectedTab].value),
     [selectedTab],
   );
   const { data, loading, refetch } = useApi<BadgesData>(fetcher);
 
   const handleTabChange = (idx: number) => {
     setSelectedTab(idx);
-    setTimeout(refetch, 0);
   };
 
+  useEffect(() => {
+    void refetch();
+  }, [selectedTab, refetch]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
+
   const badges = data?.badges ?? [];
-  const achieved = data?.achievedCount ?? badges.filter(b => b.earned).length;
+  const achieved = data?.achievedCount ?? badges.filter((b) => b.achieved || b.earned).length;
   const total = data?.totalCount ?? badges.length;
 
   return (
@@ -48,15 +64,14 @@ export default function BadgesScreen({ navigation }: Props) {
         <Text style={styles.headerCount}>{achieved}/{total}</Text>
       </View>
 
-      {/* Category Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContainer}>
         {CATEGORIES.map((cat, idx) => (
           <TouchableOpacity
-            key={cat}
+            key={cat.value}
             style={[styles.tab, selectedTab === idx && styles.tabActive]}
             onPress={() => handleTabChange(idx)}
           >
-            <Text style={[styles.tabText, selectedTab === idx && styles.tabTextActive]}>{cat}</Text>
+            <Text style={[styles.tabText, selectedTab === idx && styles.tabTextActive]}>{cat.label}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -76,21 +91,21 @@ export default function BadgesScreen({ navigation }: Props) {
             <View style={styles.grid}>
               {badges.map((badge, idx) => (
                 <Animated.View entering={FadeInDown.delay(idx * 50).duration(300)} key={badge._id ?? idx} style={styles.badgeCard}>
-                  <View style={[styles.badgeIcon, !badge.earned && styles.badgeLocked]}>
-                    <Text style={[styles.badgeEmoji, !badge.earned && { opacity: 0.3 }]}>
-                      {badge.icon ?? '🏅'}
+                  <View style={[styles.badgeIcon, !(badge.achieved || badge.earned) && styles.badgeLocked]}>
+                    <Text style={[styles.badgeEmoji, !(badge.achieved || badge.earned) && { opacity: 0.3 }]}> 
+                      {badge.emoji ?? badge.icon ?? '🏅'}
                     </Text>
                   </View>
-                  <Text style={[styles.badgeName, !badge.earned && styles.badgeNameLocked]} numberOfLines={1}>
+                  <Text style={[styles.badgeName, !(badge.achieved || badge.earned) && styles.badgeNameLocked]} numberOfLines={1}>
                     {badge.name}
                   </Text>
                   <Text style={styles.badgeDesc} numberOfLines={2}>{badge.description}</Text>
-                  {badge.earned && badge.earnedAt && (
+                  {(badge.achieved || badge.earned) && (badge.achievedAt || badge.earnedAt) && (
                     <Text style={styles.badgeDate}>
-                      {new Date(badge.earnedAt).toLocaleDateString()}
+                      {new Date((badge.achievedAt || badge.earnedAt) as string).toLocaleDateString()}
                     </Text>
                   )}
-                  {!badge.earned && (
+                  {!(badge.achieved || badge.earned) && (
                     <Feather name="lock" size={14} color={colors.text.tertiary} style={{ marginTop: 4 }} />
                   )}
                 </Animated.View>
