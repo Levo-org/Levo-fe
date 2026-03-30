@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -21,6 +21,13 @@ interface StatsData {
   lessonsCompleted: number;
   wordsLearned: number;
   quizzesCompleted: number;
+  learning?: {
+    completedLessons?: number;
+    learnedWords?: number;
+  };
+  streak?: {
+    weeklyRecord?: Array<{ date: string; minutesStudied: number }>;
+  };
 }
 
 const PERIODS = ['주', '월', '전체'] as const;
@@ -28,7 +35,7 @@ const PERIOD_MAP: Record<string, 'week' | 'month' | 'all'> = { '주': 'week', '�
 
 export default function StatsScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { xp, streak } = useUserStore();
+  const { streak } = useUserStore();
   const [selectedPeriod, setSelectedPeriod] = useState(0);
 
   const fetcher = useCallback(
@@ -39,11 +46,18 @@ export default function StatsScreen({ navigation }: Props) {
 
   const handlePeriodChange = (idx: number) => {
     setSelectedPeriod(idx);
-    // refetch will happen via useApi since fetcher changes
-    setTimeout(refetch, 0);
   };
 
+  useEffect(() => {
+    void refetch();
+  }, [selectedPeriod, refetch]);
+
   const weeklyXp = data?.weeklyXp ?? [];
+  const totalStudyMinutes = data?.totalStudyMinutes
+    ?? data?.streak?.weeklyRecord?.reduce((sum, item) => sum + (Number(item?.minutesStudied) || 0), 0)
+    ?? 0;
+  const lessonsCompleted = data?.lessonsCompleted ?? data?.learning?.completedLessons ?? 0;
+  const wordsLearned = data?.wordsLearned ?? data?.learning?.learnedWords ?? 0;
   const maxXp = Math.max(...weeklyXp.map(d => d.xp), 1);
 
   return (
@@ -73,9 +87,8 @@ export default function StatsScreen({ navigation }: Props) {
             ))}
           </View>
 
-          {/* XP Chart */}
           <Animated.View entering={FadeInDown.duration(400)} style={styles.chartCard}>
-            <Text style={styles.chartTitle}>XP 그래프</Text>
+            <Text style={styles.chartTitle}>학습 시간 그래프</Text>
             <View style={styles.chartArea}>
               {weeklyXp.map((d, idx) => (
                 <View key={idx} style={styles.barCol}>
@@ -93,7 +106,7 @@ export default function StatsScreen({ navigation }: Props) {
           <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.summaryGrid}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryEmoji}>⏱️</Text>
-              <Text style={styles.summaryValue}>{data?.totalStudyMinutes ?? 0}분</Text>
+              <Text style={styles.summaryValue}>{totalStudyMinutes}분</Text>
               <Text style={styles.summaryLabel}>학습 시간</Text>
             </View>
             <View style={styles.summaryItem}>
@@ -103,12 +116,12 @@ export default function StatsScreen({ navigation }: Props) {
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryEmoji}>📚</Text>
-              <Text style={styles.summaryValue}>{data?.lessonsCompleted ?? 0}</Text>
+              <Text style={styles.summaryValue}>{lessonsCompleted}</Text>
               <Text style={styles.summaryLabel}>레슨 완료</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryEmoji}>📝</Text>
-              <Text style={styles.summaryValue}>{data?.wordsLearned ?? 0}</Text>
+              <Text style={styles.summaryValue}>{wordsLearned}</Text>
               <Text style={styles.summaryLabel}>단어 학습</Text>
             </View>
           </Animated.View>
