@@ -5,6 +5,8 @@ interface SpeakOptions {
   language?: string;
   rate?: number;
   pitch?: number;
+  voiceProfile?: 'female' | 'male';
+  transport?: 'remote-stream-first' | 'expo-only';
   onDone?: () => void;
   onStopped?: () => void;
   onError?: (error: Error) => void;
@@ -23,6 +25,8 @@ const DEFAULT_LOCALE = 'en-US';
 const REMOTE_CHUNK_LIMIT = 170;
 const START_DETECTION_DELAY_MS = 450;
 const NOVELTY_VOICE_KEYWORDS = ['trinoids', 'zarvox', 'whisper', 'goodnews', 'badnews', 'bells'];
+const FEMALE_VOICE_KEYWORDS = ['female', 'woman', 'samantha', 'ava', 'victoria', 'karen', 'susan', 'zira', 'allison'];
+const MALE_VOICE_KEYWORDS = ['male', 'man', 'alex', 'daniel', 'fred', 'thomas', 'jorge', 'diego'];
 
 let audioModeInitialized = false;
 let availableVoices: Speech.Voice[] | null = null;
@@ -122,7 +126,7 @@ const getVoices = async (): Promise<Speech.Voice[]> => {
   return availableVoices;
 };
 
-const getPreferredVoice = async (language?: string): Promise<Speech.Voice | null> => {
+const getPreferredVoice = async (language?: string, voiceProfile?: 'female' | 'male'): Promise<Speech.Voice | null> => {
   const voices = await getVoices();
   if (voices.length === 0) return null;
 
@@ -134,11 +138,19 @@ const getPreferredVoice = async (language?: string): Promise<Speech.Voice | null
     return NOVELTY_VOICE_KEYWORDS.some((keyword) => signature.includes(keyword));
   };
 
+  const hasVoiceProfileMatch = (voice: Speech.Voice, profile?: 'female' | 'male'): boolean => {
+    if (!profile) return true;
+    const signature = `${voice.identifier || ''} ${voice.name || ''}`.toLowerCase();
+    const keywords = profile === 'female' ? FEMALE_VOICE_KEYWORDS : MALE_VOICE_KEYWORDS;
+    return keywords.some((keyword) => signature.includes(keyword));
+  };
+
   const scoreVoice = (voice: Speech.Voice): number => {
     let score = 0;
     if (!isNovelty(voice)) score += 10;
     if ((voice.quality || '').toLowerCase() === 'enhanced') score += 3;
     if ((voice.quality || '').toLowerCase() === 'default') score += 2;
+    if (voiceProfile && hasVoiceProfileMatch(voice, voiceProfile)) score += 5;
     return score;
   };
 
@@ -146,12 +158,46 @@ const getPreferredVoice = async (language?: string): Promise<Speech.Voice | null
     [...list].sort((a, b) => scoreVoice(b) - scoreVoice(a))[0] || null;
 
   const exact = pickBest(voices.filter((voice) => voice.language?.toLowerCase() === locale.toLowerCase()));
+  if (exact && (!voiceProfile || hasVoiceProfileMatch(exact, voiceProfile))) return exact;
+
+  if (voiceProfile) {
+    const exactGender = pickBest(
+      voices.filter(
+        (voice) =>
+          voice.language?.toLowerCase() === locale.toLowerCase() && hasVoiceProfileMatch(voice, voiceProfile),
+      ),
+    );
+    if (exactGender) return exactGender;
+  }
+
   if (exact) return exact;
 
   const sameLanguage = pickBest(
     voices.filter((voice) => voice.language?.toLowerCase().startsWith(`${languagePrefix}-`)),
   );
+  if (sameLanguage && (!voiceProfile || hasVoiceProfileMatch(sameLanguage, voiceProfile))) return sameLanguage;
+
+  if (voiceProfile) {
+    const sameLanguageGender = pickBest(
+      voices.filter(
+        (voice) =>
+          voice.language?.toLowerCase().startsWith(`${languagePrefix}-`) &&
+          hasVoiceProfileMatch(voice, voiceProfile),
+      ),
+    );
+    if (sameLanguageGender) return sameLanguageGender;
+  }
+
   if (sameLanguage) return sameLanguage;
+
+  if (voiceProfile) {
+    const englishGender = pickBest(
+      voices.filter(
+        (voice) => voice.language?.toLowerCase().startsWith('en-') && hasVoiceProfileMatch(voice, voiceProfile),
+      ),
+    );
+    if (englishGender) return englishGender;
+  }
 
   return pickBest(voices.filter((voice) => voice.language?.toLowerCase().startsWith('en-'))) || voices[0];
 };
@@ -307,7 +353,12 @@ export const audioService = {
     await disposeSound();
 
     const locale = mapToSpeechLocale(options.language);
-    const preferredVoice = await getPreferredVoice(options.language);
+    const preferredVoice = await getPreferredVoice(options.language, options.voiceProfile);
+
+    if (options.transport === 'expo-only') {
+      await runExpoSpeech(content, locale, preferredVoice, options);
+      return;
+    }
 
     try {
       await runRemoteTtsStream(content, locale, sessionId, options);

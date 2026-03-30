@@ -9,6 +9,7 @@ import type { RootStackParamList, ReadingPracticePassage } from '../../types';
 import BackButton from '../../components/BackButton';
 import QuizOption from '../../components/QuizOption';
 import { readingService } from '../../services/reading.service';
+import { audioService } from '../../services/audio.service';
 import { useApi } from '../../hooks/useApi';
 import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
@@ -27,8 +28,9 @@ export default function ReadingPracticeScreen({ navigation, route }: Props) {
   const [answered, setAnswered] = useState(false);
   const [selectedPassageIdx, setSelectedPassageIdx] = useState(0);
   const [serverCorrectIdx, setServerCorrectIdx] = useState<number | null>(null);
+  const [isReadingAudioPlaying, setIsReadingAudioPlaying] = useState(false);
   const initializedWithRouteParam = useRef(false);
-  const activeLanguage = useAuthStore((state) => state.user?.activeLanguage);
+  const activeLanguage = useAuthStore((state) => state.user?.activeLanguage ?? state.languageProfile?.targetLanguage ?? 'en');
   const level = useAuthStore((state) => state.languageProfile?.level);
 
   const fetcher = useCallback(
@@ -63,6 +65,38 @@ export default function ReadingPracticeScreen({ navigation, route }: Props) {
     }, [refetch]),
   );
 
+  useEffect(() => {
+    return () => {
+      audioService.stop().catch(() => undefined);
+    };
+  }, []);
+
+  const handlePlayReadingAudio = useCallback(async () => {
+    if (!passage) return;
+
+    if (isReadingAudioPlaying) {
+      await audioService.stop();
+      setIsReadingAudioPlaying(false);
+      return;
+    }
+
+    const speechText = showTranslation && passage.translation ? passage.translation : passage.text;
+    const speechLanguage = showTranslation ? 'ko' : activeLanguage;
+
+    setIsReadingAudioPlaying(true);
+    try {
+      await audioService.speak(speechText, {
+        language: speechLanguage,
+        rate: 0.9,
+        onDone: () => setIsReadingAudioPlaying(false),
+        onStopped: () => setIsReadingAudioPlaying(false),
+        onError: () => setIsReadingAudioPlaying(false),
+      });
+    } catch {
+      setIsReadingAudioPlaying(false);
+    }
+  }, [passage, isReadingAudioPlaying, showTranslation, activeLanguage]);
+
   const handleSelect = useCallback(async (index: number) => {
     if (answered || !passage || !question) return;
     setSelectedAnswer(index);
@@ -89,6 +123,8 @@ export default function ReadingPracticeScreen({ navigation, route }: Props) {
       setAnswered(false);
       setServerCorrectIdx(null);
     } else if (selectedPassageIdx < allPassages.length - 1) {
+      audioService.stop().catch(() => undefined);
+      setIsReadingAudioPlaying(false);
       setSelectedPassageIdx((i) => i + 1);
       setCurrentQ(0);
       setSelectedAnswer(null);
@@ -140,14 +176,26 @@ export default function ReadingPracticeScreen({ navigation, route }: Props) {
         <Animated.View entering={FadeInDown.duration(500)} style={styles.passageCard}>
           <Text style={styles.passageTitle}>{passage.title}</Text>
           <Text style={styles.passageText}>{showTranslation ? passage.translation : passage.text}</Text>
-          <TouchableOpacity
-            style={styles.toggleButton}
-            onPress={() => setShowTranslation(!showTranslation)}
-            activeOpacity={0.7}
-          >
-            <Feather name="globe" size={16} color={colors.accent.blue} />
-            <Text style={styles.toggleText}>{showTranslation ? '원문 보기' : '번역 보기'}</Text>
-          </TouchableOpacity>
+          <View style={styles.passageActions}>
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => setShowTranslation(!showTranslation)}
+              activeOpacity={0.7}
+            >
+              <Feather name="globe" size={16} color={colors.accent.blue} />
+              <Text style={styles.toggleText}>{showTranslation ? '원문 보기' : '번역 보기'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.listenButton, isReadingAudioPlaying && styles.listenButtonActive]}
+              onPress={handlePlayReadingAudio}
+              activeOpacity={0.8}
+            >
+              <Feather name={isReadingAudioPlaying ? 'pause' : 'volume-2'} size={16} color={isReadingAudioPlaying ? '#FFFFFF' : colors.primary.main} />
+              <Text style={[styles.listenButtonText, isReadingAudioPlaying && styles.listenButtonTextActive]}>
+                {isReadingAudioPlaying ? '정지' : '듣기'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
 
         {question && (
@@ -194,8 +242,29 @@ const styles = StyleSheet.create({
   passageCard: { backgroundColor: '#F7F7F7', borderRadius: 20, padding: 24, marginBottom: 24 },
   passageTitle: { fontSize: 18, fontWeight: '700', color: '#4B4B4B', marginBottom: 12 },
   passageText: { fontSize: 15, color: '#4B4B4B', lineHeight: 24 },
-  toggleButton: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: '#EDF7FF' },
+  passageActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16 },
+  toggleButton: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: '#EDF7FF' },
   toggleText: { fontSize: 13, color: '#1CB0F6', fontWeight: '600' },
+  listenButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#E8F7E0',
+  },
+  listenButtonActive: {
+    backgroundColor: colors.primary.main,
+  },
+  listenButtonText: {
+    fontSize: 13,
+    color: colors.primary.main,
+    fontWeight: '600',
+  },
+  listenButtonTextActive: {
+    color: '#FFFFFF',
+  },
   quizSection: { marginBottom: 24 },
   quizTitle: { fontSize: 13, color: '#AFAFAF', marginBottom: 8 },
   questionText: { fontSize: 18, fontWeight: '700', color: '#4B4B4B', marginBottom: 16 },
