@@ -2,6 +2,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const APP_USAGE_KEY = 'levo_app_usage_seconds';
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 interface AppUsageSnapshot {
   date: string;
@@ -15,8 +16,13 @@ let appStateListener: { remove: () => void } | null = null;
 
 const getKSTDate = () => {
   const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const kst = new Date(now.getTime() + KST_OFFSET_MS);
   return kst.toISOString().split('T')[0];
+};
+
+const getKSTStartOfDayTimestamp = () => {
+  const kstDate = getKSTDate();
+  return Date.parse(`${kstDate}T00:00:00.000Z`) - KST_OFFSET_MS;
 };
 
 const loadSnapshot = async (): Promise<AppUsageSnapshot> => {
@@ -51,7 +57,8 @@ const flushActiveElapsed = async () => {
   rotateIfNeeded();
   if (!activeStartedAt) return;
 
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - activeStartedAt) / 1000));
+  const startedAtForToday = Math.max(activeStartedAt, getKSTStartOfDayTimestamp());
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAtForToday) / 1000));
   persistedSnapshot.seconds += elapsedSeconds;
   activeStartedAt = null;
   await persistSnapshot();
@@ -88,8 +95,9 @@ export const getTodayAppUsageSeconds = async () => {
 
   rotateIfNeeded();
 
+  const startedAtForToday = activeStartedAt ? Math.max(activeStartedAt, getKSTStartOfDayTimestamp()) : null;
   const runningSeconds = activeStartedAt
-    ? Math.max(0, Math.floor((Date.now() - activeStartedAt) / 1000))
+    ? Math.max(0, Math.floor((Date.now() - (startedAtForToday || Date.now())) / 1000))
     : 0;
 
   return persistedSnapshot.seconds + runningSeconds;
