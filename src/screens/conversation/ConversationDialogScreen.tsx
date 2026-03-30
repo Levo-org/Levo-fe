@@ -32,7 +32,8 @@ export default function ConversationDialogScreen({ navigation, route }: Props) {
   );
 
   const getVoiceProfile = useCallback((speaker: string) => {
-    return speaker.trim().toUpperCase() === 'B' ? 'male' : 'female';
+    const normalized = speaker.trim().toUpperCase();
+    return normalized === 'B' || normalized.includes(' B') || normalized.startsWith('B') ? 'male' : 'female';
   }, []);
 
   const stopPlayback = useCallback(async () => {

@@ -28,6 +28,12 @@ const NOVELTY_VOICE_KEYWORDS = ['trinoids', 'zarvox', 'whisper', 'goodnews', 'ba
 const FEMALE_VOICE_KEYWORDS = ['female', 'woman', 'samantha', 'ava', 'victoria', 'karen', 'susan', 'zira', 'allison'];
 const MALE_VOICE_KEYWORDS = ['male', 'man', 'alex', 'daniel', 'fred', 'thomas', 'jorge', 'diego'];
 
+const getProfilePitch = (voiceProfile?: 'female' | 'male'): number => {
+  if (voiceProfile === 'male') return 0.82;
+  if (voiceProfile === 'female') return 1.16;
+  return 1;
+};
+
 let audioModeInitialized = false;
 let availableVoices: Speech.Voice[] | null = null;
 let activeSound: Audio.Sound | null = null;
@@ -157,47 +163,40 @@ const getPreferredVoice = async (language?: string, voiceProfile?: 'female' | 'm
   const pickBest = (list: Speech.Voice[]) =>
     [...list].sort((a, b) => scoreVoice(b) - scoreVoice(a))[0] || null;
 
-  const exact = pickBest(voices.filter((voice) => voice.language?.toLowerCase() === locale.toLowerCase()));
-  if (exact && (!voiceProfile || hasVoiceProfileMatch(exact, voiceProfile))) return exact;
-
   if (voiceProfile) {
-    const exactGender = pickBest(
-      voices.filter(
-        (voice) =>
-          voice.language?.toLowerCase() === locale.toLowerCase() && hasVoiceProfileMatch(voice, voiceProfile),
-      ),
-    );
-    if (exactGender) return exactGender;
+    const genderVoice =
+      pickBest(
+        voices.filter(
+          (voice) =>
+            voice.language?.toLowerCase() === locale.toLowerCase() && hasVoiceProfileMatch(voice, voiceProfile),
+        ),
+      ) ||
+      pickBest(
+        voices.filter(
+          (voice) =>
+            voice.language?.toLowerCase().startsWith(`${languagePrefix}-`) &&
+            hasVoiceProfileMatch(voice, voiceProfile),
+        ),
+      ) ||
+      pickBest(
+        voices.filter(
+          (voice) => voice.language?.toLowerCase().startsWith('en-') && hasVoiceProfileMatch(voice, voiceProfile),
+        ),
+      ) ||
+      pickBest(voices.filter((voice) => hasVoiceProfileMatch(voice, voiceProfile)));
+
+    if (genderVoice) {
+      return genderVoice;
+    }
   }
 
+  const exact = pickBest(voices.filter((voice) => voice.language?.toLowerCase() === locale.toLowerCase()));
   if (exact) return exact;
 
   const sameLanguage = pickBest(
     voices.filter((voice) => voice.language?.toLowerCase().startsWith(`${languagePrefix}-`)),
   );
-  if (sameLanguage && (!voiceProfile || hasVoiceProfileMatch(sameLanguage, voiceProfile))) return sameLanguage;
-
-  if (voiceProfile) {
-    const sameLanguageGender = pickBest(
-      voices.filter(
-        (voice) =>
-          voice.language?.toLowerCase().startsWith(`${languagePrefix}-`) &&
-          hasVoiceProfileMatch(voice, voiceProfile),
-      ),
-    );
-    if (sameLanguageGender) return sameLanguageGender;
-  }
-
   if (sameLanguage) return sameLanguage;
-
-  if (voiceProfile) {
-    const englishGender = pickBest(
-      voices.filter(
-        (voice) => voice.language?.toLowerCase().startsWith('en-') && hasVoiceProfileMatch(voice, voiceProfile),
-      ),
-    );
-    if (englishGender) return englishGender;
-  }
 
   return pickBest(voices.filter((voice) => voice.language?.toLowerCase().startsWith('en-'))) || voices[0];
 };
@@ -354,18 +353,22 @@ export const audioService = {
 
     const locale = mapToSpeechLocale(options.language);
     const preferredVoice = await getPreferredVoice(options.language, options.voiceProfile);
+    const resolvedOptions: SpeakOptions = {
+      ...options,
+      pitch: options.pitch ?? getProfilePitch(options.voiceProfile),
+    };
 
     if (options.transport === 'expo-only') {
-      await runExpoSpeech(content, locale, preferredVoice, options);
+      await runExpoSpeech(content, locale, preferredVoice, resolvedOptions);
       return;
     }
 
     try {
-      await runRemoteTtsStream(content, locale, sessionId, options);
+      await runRemoteTtsStream(content, locale, sessionId, resolvedOptions);
       return;
     } catch {
       try {
-        await runExpoSpeech(content, locale, preferredVoice, options);
+        await runExpoSpeech(content, locale, preferredVoice, resolvedOptions);
         return;
       } catch (error) {
         options.onError?.(error as Error);
