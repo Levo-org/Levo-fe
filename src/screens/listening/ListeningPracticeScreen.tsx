@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -181,7 +181,12 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
         </View>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentInner}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.counter}>문제 {currentIndex + 1}/{totalProblems}</Text>
 
         <Animated.View entering={FadeInDown.duration(400)} style={styles.audioCard}>
@@ -226,7 +231,7 @@ export default function ListeningPracticeScreen({ navigation, route }: Props) {
                 />
           ))}
         </View>
-      </View>
+      </ScrollView>
 
       {answered && (
         <Animated.View entering={FadeInUp.duration(300)} style={styles.footer}>
@@ -243,7 +248,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, gap: 12 },
   progressWrapper: { flex: 1 },
-  content: { flex: 1, paddingHorizontal: 24 },
+  content: { flex: 1 },
+  contentInner: { paddingHorizontal: 24, paddingBottom: 24 },
   counter: { fontSize: 13, color: '#AFAFAF', marginBottom: 12 },
   audioCard: { backgroundColor: '#F7F7F7', borderRadius: 20, padding: 24, alignItems: 'center', marginBottom: 24, gap: 12 },
   playButton: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#FF9600', justifyContent: 'center', alignItems: 'center' },
