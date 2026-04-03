@@ -5,7 +5,6 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../types';
 import HomeScreen from '../screens/home/HomeScreen';
-import LessonMapScreen from '../screens/home/LessonMapScreen';
 import ReviewScreen from '../screens/review/ReviewScreen';
 import StatsScreen from '../screens/stats/StatsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -58,14 +57,6 @@ export function MainTab() {
         options={{
           tabBarLabel: '홈',
           tabBarIcon: ({ color, size }: { color: string; size: number }) => <Feather name="home" size={size} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="LearnTab"
-        component={LessonMapScreen}
-        options={{
-          tabBarLabel: '학습',
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => <Feather name="book-open" size={size} color={color} />,
         }}
       />
       <Tab.Screen

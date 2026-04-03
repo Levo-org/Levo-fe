@@ -10,7 +10,6 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   HomeTab: undefined;
-  LearnTab: undefined;
   ReviewTab: undefined;
   StatsTab: undefined;
   ProfileTab: undefined;
