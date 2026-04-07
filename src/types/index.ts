@@ -107,6 +107,11 @@ export interface Word {
   pronunciation: string;
   meaning: string;
   meanings?: string[];
+  meaningExamples?: Array<{
+    meaning: string;
+    exampleSentence: string;
+    exampleTranslation: string;
+  }>;
   partOfSpeech: string;
   level: string;
   chapter: number;
@@ -121,6 +126,11 @@ export interface FlashcardWord {
   pronunciation: string;
   meaning: string;
   meanings?: string[];
+  meaningExamples?: Array<{
+    meaning: string;
+    exampleSentence: string;
+    exampleTranslation: string;
+  }>;
   partOfSpeech: string;
   exampleSentence: string;
   exampleTranslation: string;

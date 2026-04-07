@@ -145,6 +145,14 @@ export default function VocabularyScreen() {
                     ) : (
                       <Text style={styles.meaningText}>{item.meaning}</Text>
                     )}
+                    {item.meaningExamples && item.meaningExamples.length > 0 ? (
+                      <Text style={styles.meaningExampleText}>
+                        {item.meaningExamples
+                          .slice(0, 2)
+                          .map((example, i) => `${['①', '②'][i] ?? `${i + 1}.`} ${example.exampleSentence}`)
+                          .join('  ')}
+                      </Text>
+                    ) : null}
                     {item.chapter > 0 && <Text style={styles.chapterText}>Chapter {item.chapter}</Text>}
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: config.bg }]}> 
@@ -222,6 +230,7 @@ const styles = StyleSheet.create({
   wordText: { ...typography.body, fontWeight: '700', color: colors.text.primary },
   pronunciationText: { ...typography.caption, color: colors.text.secondary, marginTop: 2 },
   meaningText: { ...typography.small, color: colors.text.primary, marginTop: 4 },
+  meaningExampleText: { ...typography.caption, color: colors.text.secondary, marginTop: 4 },
   chapterText: { ...typography.caption, color: colors.text.tertiary, marginTop: 6, fontWeight: '600' },
   statusBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8 },
   statusText: { ...typography.caption, fontWeight: '700' },

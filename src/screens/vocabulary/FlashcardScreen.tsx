@@ -242,7 +242,20 @@ export default function FlashcardScreen({ navigation, route }: Props) {
             <Text style={styles.cardPronunciation}>{card.pronunciation}</Text>
             <View style={styles.exampleBox}>
               <Text style={styles.exampleLabel}>예문</Text>
-              <Text style={styles.exampleText}>{card.exampleSentence}</Text>
+              {card.meaningExamples && card.meaningExamples.length > 0 ? (
+                card.meaningExamples.slice(0, 3).map((example, index) => (
+                  <View key={`${example.meaning}-${index}`} style={styles.exampleItem}>
+                    <Text style={styles.exampleMeaning}>{`${['①', '②', '③'][index] ?? `${index + 1}.`} ${example.meaning}`}</Text>
+                    <Text style={styles.exampleText}>{example.exampleSentence}</Text>
+                    <Text style={styles.exampleTranslation}>{example.exampleTranslation}</Text>
+                  </View>
+                ))
+              ) : (
+                <>
+                  <Text style={styles.exampleText}>{card.exampleSentence}</Text>
+                  {card.exampleTranslation ? <Text style={styles.exampleTranslation}>{card.exampleTranslation}</Text> : null}
+                </>
+              )}
             </View>
           </Animated.View>
         </TouchableOpacity>
@@ -290,7 +303,10 @@ const styles = StyleSheet.create({
   cardPronunciation: { ...typography.body, color: 'rgba(255,255,255,0.8)', marginBottom: 16 },
   exampleBox: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 12, width: '100%' },
   exampleLabel: { ...typography.caption, color: 'rgba(255,255,255,0.7)', marginBottom: 4 },
+  exampleItem: { marginTop: 4 },
+  exampleMeaning: { ...typography.caption, color: 'rgba(255,255,255,0.9)', fontWeight: '700', marginBottom: 2 },
   exampleText: { ...typography.body, color: '#FFFFFF' },
+  exampleTranslation: { ...typography.caption, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
   actions: { flexDirection: 'row', paddingHorizontal: 24, paddingBottom: 48, gap: 16 },
   actionButton: { flex: 1, alignItems: 'center', paddingVertical: 16, borderRadius: 16, gap: 4 },
   wrongButton: { backgroundColor: '#FFEBEE' },
