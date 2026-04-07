@@ -228,7 +228,17 @@ export default function FlashcardScreen({ navigation, route }: Props) {
             <TouchableOpacity style={styles.pronounceButtonBack} onPress={handlePlayPronunciation} activeOpacity={0.8}>
               <Feather name={isPronouncing ? 'pause-circle' : 'volume-2'} size={24} color="#FFFFFF" />
             </TouchableOpacity>
-            <Text style={styles.cardMeaning}>{card.meaning}</Text>
+            {card.meanings && card.meanings.length > 1 ? (
+              <View style={styles.meaningsContainer}>
+                {card.meanings.map((m, i) => (
+                  <Text key={i} style={styles.cardMeaningItem}>
+                    {`${['①', '②', '③', '④'][i] ?? `${i + 1}.`} ${m}`}
+                  </Text>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.cardMeaning}>{card.meaning}</Text>
+            )}
             <Text style={styles.cardPronunciation}>{card.pronunciation}</Text>
             <View style={styles.exampleBox}>
               <Text style={styles.exampleLabel}>예문</Text>
@@ -275,6 +285,8 @@ const styles = StyleSheet.create({
   cardWord: { fontSize: 32, fontWeight: '800', color: colors.text.primary, marginBottom: 12 },
   tapHint: { ...typography.small, color: colors.text.secondary },
   cardMeaning: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
+  meaningsContainer: { alignItems: 'flex-start', width: '100%', marginBottom: 8, gap: 4 },
+  cardMeaningItem: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
   cardPronunciation: { ...typography.body, color: 'rgba(255,255,255,0.8)', marginBottom: 16 },
   exampleBox: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 12, width: '100%' },
   exampleLabel: { ...typography.caption, color: 'rgba(255,255,255,0.7)', marginBottom: 4 },

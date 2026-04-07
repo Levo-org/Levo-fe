@@ -138,7 +138,13 @@ export default function VocabularyScreen() {
                   <View style={styles.wordLeft}>
                     <Text style={styles.wordText}>{item.word}</Text>
                     <Text style={styles.pronunciationText}>{item.pronunciation}</Text>
-                    <Text style={styles.meaningText}>{item.meaning}</Text>
+                    {item.meanings && item.meanings.length > 1 ? (
+                      <Text style={styles.meaningText}>
+                        {item.meanings.map((m, i) => `${['①', '②', '③', '④'][i] ?? `${i + 1}.`} ${m}`).join('  ')}
+                      </Text>
+                    ) : (
+                      <Text style={styles.meaningText}>{item.meaning}</Text>
+                    )}
                     {item.chapter > 0 && <Text style={styles.chapterText}>Chapter {item.chapter}</Text>}
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: config.bg }]}> 
