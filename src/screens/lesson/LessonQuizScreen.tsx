@@ -7,7 +7,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
 import { lessonService } from '../../services/lesson.service';
 import { useApi } from '../../hooks/useApi';
-import { useHeartStore } from '../../stores/heartStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -30,7 +29,6 @@ interface LessonDetail {
 export default function LessonQuizScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { lessonId } = route.params;
-  const { currentHearts, useHeart } = useHeartStore();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -53,8 +51,6 @@ export default function LessonQuizScreen({ navigation, route }: Props) {
 
     if (correct) {
       setCorrectCount(c => c + 1);
-    } else {
-      useHeart();
     }
   };
 
@@ -110,10 +106,7 @@ export default function LessonQuizScreen({ navigation, route }: Props) {
         <View style={styles.progressBar}>
           <Animated.View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
         </View>
-        <View style={styles.heartBadge}>
-          <Feather name="heart" size={16} color={colors.status.error} />
-          <Text style={styles.heartCount}>{currentHearts}</Text>
-        </View>
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -198,8 +191,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, gap: 12, marginBottom: 16 },
   progressBar: { flex: 1, height: 8, backgroundColor: colors.border.light, borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: colors.primary.main, borderRadius: 4 },
-  heartBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  heartCount: { ...typography.caption, color: colors.status.error, fontWeight: '700' },
   content: { paddingHorizontal: 24, paddingBottom: 120 },
   questionCount: { ...typography.small, color: colors.text.secondary, marginBottom: 8 },
   questionText: { ...typography.h2, color: colors.text.primary, marginBottom: 32, lineHeight: 32 },

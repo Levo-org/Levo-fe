@@ -14,7 +14,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'LessonComplete'>;
 
 interface CompleteResult {
   xpEarned: number;
-  coinsEarned: number;
   newLevel?: number;
 }
 
@@ -23,7 +22,7 @@ export default function LessonCompleteScreen({ navigation, route }: Props) {
   const { lessonId, score, correctCount, totalQuestions, timeSpentSeconds } = route.params;
   const [result, setResult] = useState<CompleteResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const { setXp, setCoins, xp, coins } = useUserStore();
+  const { setXp, xp } = useUserStore();
 
   useEffect(() => {
     const complete = async () => {
@@ -38,16 +37,14 @@ export default function LessonCompleteScreen({ navigation, route }: Props) {
           const d = res.data.data as any;
           setResult({
             xpEarned: d.xpEarned ?? 15,
-            coinsEarned: d.coinsEarned ?? 5,
             newLevel: d.newLevel,
           });
           setXp(xp + (d.xpEarned ?? 15));
-          setCoins(coins + (d.coinsEarned ?? 5));
         } else {
-          setResult({ xpEarned: 15, coinsEarned: 5 });
+          setResult({ xpEarned: 15 });
         }
       } catch {
-        setResult({ xpEarned: 15, coinsEarned: 5 });
+        setResult({ xpEarned: 15 });
       } finally {
         setLoading(false);
       }
@@ -104,12 +101,6 @@ export default function LessonCompleteScreen({ navigation, route }: Props) {
             <Text style={styles.rewardEmoji}>⭐</Text>
             <Text style={styles.rewardValue}>+{result?.xpEarned ?? 15}</Text>
             <Text style={styles.rewardLabel}>XP</Text>
-          </View>
-          <View style={styles.rewardDivider} />
-          <View style={styles.rewardItem}>
-            <Text style={styles.rewardEmoji}>🪙</Text>
-            <Text style={styles.rewardValue}>+{result?.coinsEarned ?? 5}</Text>
-            <Text style={styles.rewardLabel}>코인</Text>
           </View>
           {timeSpentSeconds != null && (
             <>

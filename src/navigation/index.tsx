@@ -32,12 +32,8 @@ import ReadingReviewScreen from '../screens/review/ReadingReviewScreen';
 import QuizReviewScreen from '../screens/review/QuizReviewScreen';
 import StreakDetailScreen from '../screens/stats/StreakDetailScreen';
 import BadgesScreen from '../screens/stats/BadgesScreen';
-import CoinShopScreen from '../screens/shop/CoinShopScreen';
-import CoinShopUseScreen from '../screens/shop/CoinShopUseScreen';
-import PremiumScreen from '../screens/shop/PremiumScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
 import SourcesCreditsScreen from '../screens/profile/SourcesCreditsScreen';
-import HeartsDemoScreen from '../screens/profile/HeartsDemoScreen';
 
 const Stack: any = createNativeStackNavigator<RootStackParamList>();
 
@@ -88,12 +84,8 @@ export function RootNavigator() {
             <Stack.Screen name="QuizReview" component={QuizReviewScreen} />
             <Stack.Screen name="StreakDetail" component={StreakDetailScreen} />
             <Stack.Screen name="Badges" component={BadgesScreen} />
-            <Stack.Screen name="CoinShop" component={CoinShopScreen} />
-            <Stack.Screen name="CoinShopUse" component={CoinShopUseScreen} />
-            <Stack.Screen name="Premium" component={PremiumScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="SourcesCredits" component={SourcesCreditsScreen} />
-            <Stack.Screen name="HeartsDemo" component={HeartsDemoScreen} />
           </>
         )}
       </Stack.Navigator>

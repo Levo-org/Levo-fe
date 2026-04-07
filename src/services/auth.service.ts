@@ -7,8 +7,6 @@ interface AuthUser {
   name: string;
   profileImage?: string;
   activeLanguage: string;
-  isPremium?: boolean;
-  coins?: number;
   isNewUser: boolean;
 }
 

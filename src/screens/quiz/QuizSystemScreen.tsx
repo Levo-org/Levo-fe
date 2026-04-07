@@ -7,7 +7,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
 import { quizService } from '../../services/quiz.service';
 import { useApi } from '../../hooks/useApi';
-import { useHeartStore } from '../../stores/heartStore';
 import { useUserStore } from '../../stores/userStore';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -30,8 +29,7 @@ interface DailyQuiz {
 
 export default function QuizSystemScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { currentHearts, useHeart } = useHeartStore();
-  const { setXp, setCoins, xp, coins } = useUserStore();
+  const { setXp, xp } = useUserStore();
 
   const fetcher = useCallback(() => quizService.getDailyQuiz(), []);
   const { data, loading } = useApi<DailyQuiz>(fetcher);
@@ -62,7 +60,6 @@ export default function QuizSystemScreen({ navigation }: Props) {
         setIsCorrect(d.correct);
         setServerExplanation(d.explanation ?? null);
         if (d.correct) setCorrectCount(c => c + 1);
-        else useHeart();
         return;
       }
     } catch { /* fallback to client */ }
@@ -70,7 +67,6 @@ export default function QuizSystemScreen({ navigation }: Props) {
     const correct = index === current.correctAnswer;
     setIsCorrect(correct);
     if (correct) setCorrectCount(c => c + 1);
-    else useHeart();
   };
 
   const handleNext = () => {
@@ -96,7 +92,6 @@ export default function QuizSystemScreen({ navigation }: Props) {
       if (res.data?.success) {
         const d = res.data.data;
         setXp(xp + (d.xpEarned ?? 10));
-        setCoins(coins + (d.coinsEarned ?? 3));
       }
     } catch { /* ignore */ }
     setFinished(true);
@@ -165,10 +160,7 @@ export default function QuizSystemScreen({ navigation }: Props) {
         <View style={styles.progressBar}>
           <Animated.View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
         </View>
-        <View style={styles.heartBadge}>
-          <Feather name="heart" size={16} color={colors.status.error} />
-          <Text style={styles.heartCount}>{currentHearts}</Text>
-        </View>
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -236,8 +228,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, gap: 12, marginBottom: 16 },
   progressBar: { flex: 1, height: 8, backgroundColor: colors.border.light, borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: colors.primary.main, borderRadius: 4 },
-  heartBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  heartCount: { ...typography.caption, color: colors.status.error, fontWeight: '700' },
   content: { paddingHorizontal: 24, paddingBottom: 120 },
   categoryBadge: { alignSelf: 'flex-start', backgroundColor: colors.primary.light, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 8 },
   categoryText: { ...typography.small, color: colors.primary.main, fontWeight: '600' },

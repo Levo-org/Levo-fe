@@ -68,8 +68,6 @@ export interface User {
   name: string;
   profileImage?: string;
   activeLanguage: string;
-  isPremium: boolean;
-  coins: number;
   settings: UserSettings;
 }
 
@@ -86,7 +84,6 @@ export interface LanguageProfile {
   level: string;
   xp: number;
   userLevel: number;
-  hearts: number;
   vocabularyProgress: number;
   grammarProgress: number;
   conversationProgress: number;
@@ -253,27 +250,23 @@ export interface HomeData {
   user?: {
     name: string;
     profileImage?: string;
-    coins: number;
-    isPremium: boolean;
     settings?: { dailyGoalMinutes: number };
   };
   profile?: {
     level: string;
     userLevel: number;
     xp: number;
-    hearts: number;
     vocabularyProgress: number;
     grammarProgress: number;
     conversationProgress: number;
     listeningProgress: number;
     readingProgress: number;
   } | null;
-  hearts?: { current: number; max: number; timeUntilRefill: string | null };
   todayLesson: { progress: number; completed: number; total: number; nextLessonId?: string };
   todaySummary?: { studied: boolean; completedLessons: number; learnedWords: number };
   streak: { current: number; isInDanger: boolean; weeklyRecord?: WeekDay[]; currentStreak?: number; longestStreak?: number; todayCompleted?: boolean };
   categories: { id: string; label: string; progress: number; completed?: number; total?: number }[];
-  state: 'normal' | 'low-hearts' | 'streak-danger';
+  state: 'normal' | 'streak-danger';
 }
 
 export interface ReviewCategory {

@@ -116,16 +116,6 @@ export default function SettingsScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {/* Subscription */}
-        <Text style={styles.sectionTitle}>구독</Text>
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Premium')}>
-            <Text style={{ fontSize: 18 }}>👑</Text>
-            <Text style={styles.rowLabel}>프리미엄 구독</Text>
-            <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
-          </TouchableOpacity>
-        </View>
-
         <Text style={styles.sectionTitle}>출처</Text>
         <View style={styles.section}>
           <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('SourcesCredits')}>

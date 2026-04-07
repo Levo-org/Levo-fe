@@ -30,13 +30,12 @@ interface ProfileData {
     lessonsCompleted?: number;
     wordsLearned?: number;
     streak?: number;
-    hearts?: number;
   };
 }
 
 export default function ProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { hearts, streak, coins, xp, userLevel } = useUserStore();
+  const { streak, xp, userLevel } = useUserStore();
   const authUser = useAuthStore((state) => state.user);
   const authLanguageProfile = useAuthStore((state) => state.languageProfile);
   const setUser = useAuthStore((state) => state.setUser);
@@ -143,20 +142,6 @@ export default function ProfileScreen({ navigation }: Props) {
 
           {/* Quick Info */}
           <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.infoSection}>
-            <TouchableOpacity style={styles.infoRow} onPress={() => navigation.navigate('HeartsDemo')}>
-              <Feather name="heart" size={20} color={colors.status.error} />
-              <Text style={styles.infoLabel}>하트</Text>
-              <Text style={styles.infoValue}>{hearts}/5</Text>
-              <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.infoRow} onPress={() => navigation.navigate('CoinShop')}>
-              <Text style={{ fontSize: 18 }}>🪙</Text>
-              <Text style={styles.infoLabel}>코인</Text>
-              <Text style={styles.infoValue}>{coins}</Text>
-              <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
-            </TouchableOpacity>
-
             <TouchableOpacity style={styles.infoRow} onPress={() => navigation.navigate('StreakDetail')}>
               <Text style={{ fontSize: 18 }}>🔥</Text>
               <Text style={styles.infoLabel}>스트릭</Text>

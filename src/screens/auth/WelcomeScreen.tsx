@@ -24,16 +24,12 @@ export default function WelcomeScreen(_props: Props) {
     name: string;
     profileImage?: string;
     activeLanguage: string;
-    isPremium?: boolean;
-    coins?: number;
   }): User => ({
     _id: user._id,
     email: user.email,
     name: user.name,
     profileImage: user.profileImage || '',
     activeLanguage: user.activeLanguage,
-    isPremium: user.isPremium ?? false,
-    coins: user.coins ?? 0,
     settings: {
       dailyGoalMinutes: 10,
       notificationEnabled: true,

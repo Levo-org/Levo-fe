@@ -88,10 +88,6 @@ export default function LessonStartScreen({ navigation, route }: Props) {
             <Text style={styles.infoEmoji}>⭐</Text>
             <Text style={styles.infoText}>+{lesson?.xpReward ?? 15} XP</Text>
           </View>
-          <View style={styles.infoItem}>
-            <Feather name="heart" size={16} color={colors.status.error} />
-            <Text style={styles.infoText}>하트 1개 사용</Text>
-          </View>
         </Animated.View>
       </View>
 

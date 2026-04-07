@@ -44,9 +44,7 @@ export default function LessonMapScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <TopBar
-        onHeartsPress={() => navigation.navigate('HeartsDemo')}
         onStreakPress={() => navigation.navigate('StreakDetail')}
-        onCoinsPress={() => navigation.navigate('CoinShop')}
       />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

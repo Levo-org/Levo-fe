@@ -57,7 +57,7 @@ const FALLBACK_CATEGORIES: HomeCategoryCard[] = [
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuthStore();
-  const { streak, xp, setStreak, setHearts } = useUserStore();
+  const { streak, xp, setStreak } = useUserStore();
   const [todayActiveMinutes, setTodayActiveMinutes] = React.useState(0);
 
   const fetcher = useCallback(async () => {
@@ -89,8 +89,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!data) return;
     if (data.streak) setStreak(data.streak.current ?? data.streak.currentStreak ?? 0);
-    if (data.hearts) setHearts(data.hearts.current);
-  }, [data, setStreak, setHearts]);
+  }, [data, setStreak]);
 
   useFocusEffect(
     useCallback(() => {
@@ -136,9 +135,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <TopBar
-        onHeartsPress={() => navigation.navigate('HeartsDemo')}
         onStreakPress={() => navigation.navigate('StreakDetail')}
-        onCoinsPress={() => navigation.navigate('CoinShop')}
       />
 
       {loading && !refreshing ? (
