@@ -23,13 +23,11 @@ import LessonMapScreen from '../screens/home/LessonMapScreen';
 import LessonStartScreen from '../screens/lesson/LessonStartScreen';
 import LessonQuizScreen from '../screens/lesson/LessonQuizScreen';
 import LessonCompleteScreen from '../screens/lesson/LessonCompleteScreen';
-import QuizSystemScreen from '../screens/quiz/QuizSystemScreen';
 import VocabularyReviewScreen from '../screens/review/VocabularyReviewScreen';
 import GrammarReviewScreen from '../screens/review/GrammarReviewScreen';
 import ConversationReviewScreen from '../screens/review/ConversationReviewScreen';
 import ListeningReviewScreen from '../screens/review/ListeningReviewScreen';
 import ReadingReviewScreen from '../screens/review/ReadingReviewScreen';
-import QuizReviewScreen from '../screens/review/QuizReviewScreen';
 import StreakDetailScreen from '../screens/stats/StreakDetailScreen';
 import BadgesScreen from '../screens/stats/BadgesScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
@@ -74,14 +72,12 @@ export function RootNavigator() {
             <Stack.Screen name="LessonStart" component={LessonStartScreen} />
             <Stack.Screen name="LessonQuiz" component={LessonQuizScreen} />
             <Stack.Screen name="LessonComplete" component={LessonCompleteScreen} />
-            <Stack.Screen name="QuizSystem" component={QuizSystemScreen} />
             <Stack.Screen name="Review" component={VocabularyReviewScreen} />
             <Stack.Screen name="VocabularyReview" component={VocabularyReviewScreen} />
             <Stack.Screen name="GrammarReview" component={GrammarReviewScreen} />
             <Stack.Screen name="ConversationReview" component={ConversationReviewScreen} />
             <Stack.Screen name="ListeningReview" component={ListeningReviewScreen} />
             <Stack.Screen name="ReadingReview" component={ReadingReviewScreen} />
-            <Stack.Screen name="QuizReview" component={QuizReviewScreen} />
             <Stack.Screen name="StreakDetail" component={StreakDetailScreen} />
             <Stack.Screen name="Badges" component={BadgesScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />

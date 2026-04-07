@@ -215,23 +215,6 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.section}>
-            <TouchableOpacity
-              style={styles.quizCard}
-              onPress={() => navigation.navigate('QuizSystem')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.quizLeft}>
-                <Text style={styles.quizEmoji}>🏆</Text>
-                <View>
-                  <Text style={styles.quizTitle}>오늘의 퀴즈</Text>
-                  <Text style={styles.quizDesc}>도전하고 XP를 획득하세요!</Text>
-                </View>
-              </View>
-              <Feather name="arrow-right" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </Animated.View>
-
           <View style={{ height: 24 }} />
         </ScrollView>
       )}
@@ -272,9 +255,4 @@ const styles = StyleSheet.create({
   categoryProgressTrack: { flex: 1, height: 4, backgroundColor: colors.background.tertiary, borderRadius: 2, overflow: 'hidden' },
   categoryProgressFill: { height: 4, borderRadius: 2 },
   categoryProgressText: { ...typography.caption, color: colors.text.secondary, fontSize: 10 },
-  quizCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.primary.main, borderRadius: 16, padding: 20 },
-  quizLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  quizEmoji: { fontSize: 32 },
-  quizTitle: { ...typography.h3, color: '#FFFFFF' },
-  quizDesc: { ...typography.small, color: 'rgba(255,255,255,0.8)' },
 });
