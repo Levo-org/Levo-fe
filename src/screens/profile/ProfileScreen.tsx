@@ -167,7 +167,6 @@ export default function ProfileScreen({ navigation }: Props) {
             <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.langCard}>
               <Text style={styles.langTitle}>학습 중인 언어</Text>
               <Text style={styles.langValue}>{profile.targetLanguage} · {profile.level}</Text>
-              <Text style={styles.langMeta}>단어 {profile.wordsLearned ?? 0}개 학습</Text>
 
               <View style={styles.selectorGroup}>
                 <Text style={styles.selectorLabel}>언어 변경</Text>
@@ -256,7 +255,6 @@ const styles = StyleSheet.create({
   langCard: { backgroundColor: colors.background.secondary, borderRadius: 16, padding: 20 },
   langTitle: { ...typography.small, color: colors.text.secondary, marginBottom: 4 },
   langValue: { ...typography.h4, color: colors.text.primary, marginBottom: 4 },
-  langMeta: { ...typography.small, color: colors.text.tertiary },
   selectorGroup: { marginTop: 16 },
   selectorLabel: { ...typography.caption, color: colors.text.secondary, marginBottom: 8 },
   selectorRow: { flexDirection: 'row', gap: 8 },
